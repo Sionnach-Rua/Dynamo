@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Dynamo.Engine;
 using Dynamo.Engine.NodeToCode;
 using Dynamo.Events;
@@ -725,11 +726,11 @@ namespace Dynamo.Tests
         /// <param name="filePath">The path to a .dyn file. This parameter is supplied
         /// by the test framework.</param>
         [Test, TestCaseSource("FindWorkspaces"), Category("JsonTestExclude")]
-        public void SerializationTest(string filePath)
+        public async void SerializationTest(string filePath)
         {
-            DoWorkspaceOpenAndCompare(filePath, jsonFolderName, ConvertCurrentWorkspaceToJsonAndSave,
+            await Task.Run(() => DoWorkspaceOpenAndCompare(filePath, jsonFolderName, ConvertCurrentWorkspaceToJsonAndSave,
                 serializationTestUtils.CompareWorkspaceModels,
-                serializationTestUtils.SaveWorkspaceComparisonData);
+                serializationTestUtils.SaveWorkspaceComparisonData));
         }
 
         /// <summary>
@@ -741,7 +742,7 @@ namespace Dynamo.Tests
         /// <param name="filePath">The path to a .dyn file. This parameter is supplied
         /// by the test framework.</param>
         [Test, TestCaseSource("FindWorkspaces"), Category("JsonTestExclude")]
-        public void SerializationInDifferentCultureTest(string filePath)
+        public async void SerializationInDifferentCultureTest(string filePath)
         {
             var frCulture = CultureInfo.CreateSpecificCulture("fr-FR");
 
@@ -753,9 +754,9 @@ namespace Dynamo.Tests
             Thread.CurrentThread.CurrentCulture = frCulture;
             Thread.CurrentThread.CurrentUICulture = frCulture;
 
-            DoWorkspaceOpenAndCompare(filePath, jsonFolderNameDifferentCulture, ConvertCurrentWorkspaceToJsonAndSave,
+            await Task.Run(() => DoWorkspaceOpenAndCompare(filePath, jsonFolderNameDifferentCulture, ConvertCurrentWorkspaceToJsonAndSave,
                 serializationTestUtils.CompareWorkspaceModels,
-                serializationTestUtils.SaveWorkspaceComparisonData);
+                serializationTestUtils.SaveWorkspaceComparisonData));
 
             // Restore "en-US"
             Thread.CurrentThread.CurrentCulture = currentCulture;
@@ -772,13 +773,13 @@ namespace Dynamo.Tests
         /// <param name="filePath">The path to a .dyn file. This parameter is supplied
         /// by the test framework.</param>
         [Test, TestCaseSource("FindWorkspaces"), Category("JsonTestExclude")]
-        public void SerializationNonGuidIdsTest(string filePath)
+        public async void SerializationNonGuidIdsTest(string filePath)
         {
             modelsGuidToIdMap.Clear();
-            DoWorkspaceOpenAndCompare(filePath, jsonNonGuidFolderName,
+            await Task.Run(() => DoWorkspaceOpenAndCompare(filePath, jsonNonGuidFolderName,
                 ConvertCurrentWorkspaceToNonGuidJsonAndSave,
                 serializationTestUtils.CompareWorkspacesDifferentGuids,
-                serializationTestUtils.SaveWorkspaceComparisonDataWithNonGuidIds);
+                serializationTestUtils.SaveWorkspaceComparisonDataWithNonGuidIds));
         }
 
         public static List<string> bannedTests = new List<string>()
