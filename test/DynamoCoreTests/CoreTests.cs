@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using CoreNodeModels;
 using CoreNodeModels.Input;
 using Dynamo.Configuration;
@@ -23,6 +24,9 @@ namespace Dynamo.Tests
 {
     internal class CoreTests : DynamoModelTestBase
     {
+        static object muteLock = new object();
+        static int counter = 0;
+
         protected override void GetLibrariesToPreload(List<string> libraries)
         {
             libraries.Add("VMDataBridge.dll");
@@ -457,18 +461,30 @@ namespace Dynamo.Tests
                 Assert.AreEqual(i + 1, DynamoSelection.Instance.Selection.Count);
             }
 
+            counter = 0;
+
             CurrentDynamoModel.Copy();
 
             Assert.AreEqual(numNodes, CurrentDynamoModel.ClipBoard.Count);
 
-            int numPastes = 3;
-            for (int i = 1; i <= numPastes; i++)
+            Parallel.For(0, 3, x =>
             {
+                IncrementWithLock(numNodes);
+            });
+        }
+
+        private void IncrementWithLock(int numNodes)
+        {
+            //Lock realiza un proceso correto
+            lock (muteLock)
+            {
+                ++counter;
                 CurrentDynamoModel.Paste();
                 Assert.AreEqual(numNodes, CurrentDynamoModel.ClipBoard.Count);
-                Assert.AreEqual(numNodes * (i + 1), CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
+                Assert.AreEqual(numNodes * (counter + 1), CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
             }
         }
+
 
         [Test]
         [Category("UnitTests")]
