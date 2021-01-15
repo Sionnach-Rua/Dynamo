@@ -26,13 +26,12 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("LibraryViewExtension")]
 [assembly: InternalsVisibleTo("ViewExtensionLibraryTests")]
 [assembly: InternalsVisibleTo("DynamoPerformanceTests")]
-[assembly:InternalsVisibleTo("PackageManagerTests")]
+[assembly: InternalsVisibleTo("PackageManagerTests")]
 // Internals are visible to the Package Manager extension
 // For workspace package dependency collection
 [assembly: InternalsVisibleTo("DynamoPackages")]
-
-// Internals are visible to the Package Manager extension
-// For workspace package dependency collection
 [assembly: InternalsVisibleTo("WorkspaceDependencyViewExtension")]
-
+[assembly: InternalsVisibleTo("PythonNodeModelsWpf")]
+[assembly: InternalsVisibleTo("PythonNodeModels")]
 [assembly: InternalsVisibleTo("LibraryViewExtensionMSWebBrowser")]
+[assembly: InternalsVisibleTo("PythonMigrationViewExtension")]

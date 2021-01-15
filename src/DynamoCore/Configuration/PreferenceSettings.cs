@@ -20,6 +20,7 @@ namespace Dynamo.Configuration
         private string numberFormat;
         private string lastUpdateDownloadPath;
         private int maxNumRecentFiles;
+        private bool isBackgroundGridVisible;
 
         #region Constants
         /// <summary>
@@ -60,12 +61,22 @@ namespace Dynamo.Configuration
         /// <summary>
         /// Indicates whether usage reporting is approved or not.
         /// </summary>
-        public bool IsUsageReportingApproved { get; set; }
+        [Obsolete("Property will be deprecated in Dynamo 3.0")]
+        public bool IsUsageReportingApproved { get { return false; } set { } }
 
         /// <summary>
-        /// Indicates whether analytics reporting is approved or not.
+        /// Indicates whether Google analytics reporting is approved or not.
         /// </summary>
         public bool IsAnalyticsReportingApproved { get; set; }
+
+        /// <summary>
+        /// Indicates whether ADP analytics reporting is approved or not.
+        /// </summary>
+        [XmlIgnore]
+        public bool IsADPAnalyticsReportingApproved { 
+            get { return Logging.AnalyticsService.IsADPOptedIn; }
+            set { Logging.AnalyticsService.IsADPOptedIn = value; } 
+        }
         #endregion
 
         #region UI & Graphics settings
@@ -84,6 +95,11 @@ namespace Dynamo.Configuration
         /// Indicates if preview bubbles should be displayed on nodes.
         /// </summary>
         public bool ShowPreviewBubbles { get; set; }
+
+        /// <summary>
+        /// Indicates if code block node line numbers should  be displayed.
+        /// </summary>
+        public bool ShowCodeBlockLineNumber { get; set; }
 
         /// <summary>
         /// Should connectors be visible?
@@ -140,7 +156,21 @@ namespace Dynamo.Configuration
         /// <summary>
         /// Should the background grid be shown?
         /// </summary>
-        public bool IsBackgroundGridVisible { get; set; }
+        public bool IsBackgroundGridVisible
+        {
+            get
+            {
+                return isBackgroundGridVisible;
+            }
+            set
+            {
+                if (value == isBackgroundGridVisible) return;
+                isBackgroundGridVisible = value;
+
+                RaisePropertyChanged(nameof(IsBackgroundGridVisible));
+            }
+        }
+
 
         /// <summary>
         /// Indicates whether background preview is active or not.
@@ -294,6 +324,41 @@ namespace Dynamo.Configuration
         public bool OpenFileInManualExecutionMode { get; set; }
 
         /// <summary>
+        /// This defines if user wants to see the Iron Python Extension Dialog box on every new session.
+        /// </summary>
+        public bool IsIronPythonDialogDisabled { get; set; }
+
+        /// <summary>
+        /// This defines if user wants to see the whitespaces and tabs in python script editor.
+        /// </summary>
+        public bool ShowTabsAndSpacesInScriptEditor { get; set; }
+
+        /// <summary>
+        /// This defines if user wants to see the enabled node Auto Complete feature for port interaction.
+        /// </summary>
+        public bool EnableNodeAutoComplete { get; set; }
+
+        /// <summary>
+        /// Engine used by default for new Python script and string nodes. If not empty, this takes precedence over any system settings.
+        /// </summary>
+        public string DefaultPythonEngine
+        {
+            get
+            {
+                return defaultPythonEngine;
+            }
+            set
+            {
+                defaultPythonEngine = value;
+            }
+        }
+
+        /// <summary>
+        /// Static field backing the DefaultPythonEngine setting property.
+        /// </summary>
+        private static string defaultPythonEngine;
+
+        /// <summary>
         /// Indicates (if any) which namespaces should not be displayed in the Dynamo node library.
         /// String format: "[library name]:[fully qualified namespace]"
         /// </summary>
@@ -304,6 +369,11 @@ namespace Dynamo.Configuration
         /// </summary>
         [XmlIgnore]
         public bool NamespacesToExcludeFromLibrarySpecified { get; set; }
+
+        /// <summary>
+        /// Settings that apply to view extensions.
+        /// </summary>
+        public List<ViewExtensionSettings> ViewExtensionSettings { get; set; }
 
         #endregion
 
@@ -321,11 +391,11 @@ namespace Dynamo.Configuration
 
             // Default Settings
             IsFirstRun = true;
-            IsUsageReportingApproved = false;
             IsAnalyticsReportingApproved = true;
             LibraryWidth = 304;
             ConsoleHeight = 0;
             ShowPreviewBubbles = true;
+            ShowCodeBlockLineNumber = true;
             ShowConnector = true;
             ConnectorType = ConnectorType.BEZIER;
             IsBackgroundGridVisible = true;
@@ -346,6 +416,11 @@ namespace Dynamo.Configuration
 
             CustomPackageFolders = new List<string>();
             PythonTemplateFilePath = "";
+            IsIronPythonDialogDisabled = false;
+            ShowTabsAndSpacesInScriptEditor = false;
+            EnableNodeAutoComplete = false;
+            DefaultPythonEngine = string.Empty;
+            ViewExtensionSettings = new List<ViewExtensionSettings>();
         }
 
         /// <summary>
@@ -432,6 +507,15 @@ namespace Dynamo.Configuration
         public static string GetPythonTemplateFilePath()
         {
             return pythonTemplateFilePath;
+        }
+
+        /// <summary>
+        /// Provides access to the DefaultPythonEngine setting in a static context. Used from PythonNodeBase.
+        /// </summary>
+        /// <returns>DefaultPythonEngine setting value</returns>
+        internal static string GetDefaultPythonEngine()
+        {
+            return defaultPythonEngine;
         }
 
         internal void InitializeNamespacesToExcludeFromLibrary()

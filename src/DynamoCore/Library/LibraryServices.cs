@@ -48,12 +48,6 @@ namespace Dynamo.Engine
         /// Returns core which is used for parsing code and loading libraries
         /// </summary>
         public ProtoCore.Core LibraryManagementCore { get; private set; }
-        private ProtoCore.Core liveRunnerCore = null;
-
-        internal void SetLiveCore(ProtoCore.Core core)
-        {
-            liveRunnerCore = core;
-        }
 
         private class UpgradeHint
         {
@@ -311,7 +305,7 @@ namespace Dynamo.Engine
             return splitted[splitted.Length - 2] + "." + splitted[splitted.Length - 1];
         }
 
-        internal string FunctionSignatureFromFunctionSignatureHint(string functionSignature)
+        internal string GetFunctionSignatureFromFunctionSignatureHint(string functionSignature)
         {
             // if the hint is explicit, we can simply return the mapped function
             if (priorNameHints.ContainsKey(functionSignature))

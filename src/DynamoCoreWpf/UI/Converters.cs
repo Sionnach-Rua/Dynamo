@@ -23,7 +23,6 @@ using Dynamo.ViewModels;
 using Dynamo.Wpf.Properties;
 using Dynamo.Wpf.ViewModels;
 using DynamoUnits;
-using HelixToolkit.Wpf.SharpDX;
 using Color = System.Windows.Media.Color;
 using FlowDirection = System.Windows.FlowDirection;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
@@ -1856,6 +1855,19 @@ namespace Dynamo.Controls
         }
     }
 
+    public class CompareToParameterConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return parameter.ToString() == value.ToString();
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return parameter as string;
+        }
+    }
+
     public class FullyQualifiedNameToDisplayConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -2281,10 +2293,10 @@ namespace Dynamo.Controls
             //whether this is the home space
             if ((bool)value)
             {
-                return homeColor.ToColor4();
+                return homeColor;
             }
 
-            return customColor.ToColor4();
+            return customColor;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter,

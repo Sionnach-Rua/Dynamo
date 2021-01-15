@@ -25,6 +25,12 @@
                   "path": "DSCoreNodes.DSCore.List.AllTrue"
                 },
                 {
+                  "path": "DSCoreNodes.DSCore.List.AnyFalse"
+                },
+                {
+                  "path": "DSCoreNodes.DSCore.List.AnyTrue"
+                },
+                {
                   "path": "DSCoreNodes.DSCore.List.SetIntersection"
                 },
                 {
@@ -802,7 +808,11 @@
           "text": "Display",
           "iconUrl": "./dist/resources/Category.Display.svg",
           "elementType": "category",
-          "include": [],
+          "include": [
+            {
+              "path": "Analysis.Analysis.Label"
+            }
+          ],
           "childElements": [
             {
               "text": "Color",
@@ -849,7 +859,7 @@
                   "path": "Core.Color.Color Palette"
                 }
               ],
-              "childElements": [ ]
+              "childElements": []
             },
             {
               "text": "Color Range",
@@ -866,7 +876,7 @@
                   "path": "DSCoreNodes.DSCore.ColorRange.GetColorAtParameter"
                 }
               ],
-              "childElements": [ ]
+              "childElements": []
             },
             {
               "text": "Watch",
@@ -883,7 +893,7 @@
                   "path": "Core.View.Watch 3D"
                 }
               ],
-              "childElements": [ ]
+              "childElements": []
             }
           ]
         },
@@ -1022,7 +1032,7 @@
                   "path": "DSOffice.DSOffice.Data.ImportExcel"
                 },
                 {
-                  "path": "DSOffice.DSOffice.Data.ExportExcel"
+                  "path": "DSOffice.DSOffice.Data.ExportToExcel"
                 },
                 {
                   "path": "DSOffice.DSOffice.Data.ImportCSV"
@@ -1133,6 +1143,9 @@
                 },
                 {
                   "path": "DSCoreNodes.DSCore.String.ToLower"
+                },
+                {
+                  "path": "DSCoreNodes.DSCore.String.ToTitle"
                 },
                 {
                   "path": "DSCoreNodes.DSCore.String.ToNumber"

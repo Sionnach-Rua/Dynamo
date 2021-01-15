@@ -108,6 +108,7 @@ namespace Dynamo.Views
             DynamoSelection.Instance.Selection.CollectionChanged += OnSelectionCollectionChanged;
 
             ViewModel.RequestShowInCanvasSearch += ShowHideInCanvasControl;
+            ViewModel.RequestNodeAutoCompleteSearch += ShowHideNodeAutoCompleteControl;
             ViewModel.DynamoViewModel.PropertyChanged += ViewModel_PropertyChanged;
 
             infiniteGridView.AttachToZoomBorder(zoomBorder);
@@ -131,6 +132,21 @@ namespace Dynamo.Views
         {
             ViewModel.RequestShowInCanvasSearch -= ShowHideInCanvasControl;
             ViewModel.DynamoViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+           
+            ViewModel.ZoomChanged -= vm_ZoomChanged;
+            ViewModel.RequestZoomToViewportCenter -= vm_ZoomAtViewportCenter;
+            ViewModel.RequestZoomToViewportPoint -= vm_ZoomAtViewportPoint;
+            ViewModel.RequestZoomToFitView -= vm_ZoomToFitView;
+            ViewModel.RequestCenterViewOnElement -= CenterViewOnElement;
+         
+            ViewModel.RequestAddViewToOuterCanvas -= vm_RequestAddViewToOuterCanvas;
+            ViewModel.WorkspacePropertyEditRequested -= VmOnWorkspacePropertyEditRequested;
+            ViewModel.RequestSelectionBoxUpdate -= VmOnRequestSelectionBoxUpdate;
+
+            ViewModel.Model.RequestNodeCentered -= vm_RequestNodeCentered;
+            ViewModel.Model.RequestNodeCentered -= vm_RequestNodeCentered;
+            ViewModel.Model.CurrentOffsetChanged -= vm_CurrentOffsetChanged;
+            ViewModel.RequestNodeAutoCompleteSearch -= ShowHideNodeAutoCompleteControl;
         }
 
         void OnWorkspaceViewUnloaded(object sender, RoutedEventArgs e)
@@ -143,6 +159,12 @@ namespace Dynamo.Views
             }
 
             infiniteGridView.DetachFromZoomBorder(zoomBorder);
+            
+        }
+
+        private void ShowHideNodeAutoCompleteControl(ShowHideFlags flag)
+        {
+            ShowHidePopup(flag, NodeAutoCompleteSearchBar);
         }
 
         private void ShowHideInCanvasControl(ShowHideFlags flag)
@@ -164,7 +186,16 @@ namespace Dynamo.Views
                     break;
                 case ShowHideFlags.Show:
                     // Show InCanvas search just in case, when mouse is over workspace.
-                    popup.IsOpen = DynamoModel.IsTestMode || IsMouseOver;
+                    var displayPopup = DynamoModel.IsTestMode || IsMouseOver;
+                    if (displayPopup && popup == NodeAutoCompleteSearchBar)
+                    {
+                        if (ViewModel.NodeAutoCompleteSearchViewModel.PortViewModel == null) return;
+
+                        ViewModel.NodeAutoCompleteSearchViewModel.PortViewModel.SetupNodeAutocompleteWindowPlacement(popup);
+                    }
+                    popup.IsOpen = displayPopup;
+                    popup.CustomPopupPlacementCallback = null;
+
                     ViewModel.InCanvasSearchViewModel.SearchText = string.Empty;
                     ViewModel.InCanvasSearchViewModel.InCanvasSearchPosition = inCanvasSearchPosition;
                     break;
@@ -180,6 +211,16 @@ namespace Dynamo.Views
             {
                 ShowHideContextMenu(ShowHideFlags.Hide);
                 ShowHideInCanvasControl(ShowHideFlags.Hide);
+            }
+            if (NodeAutoCompleteSearchBar.IsOpen)
+            {
+                // Suppress the mouse action from last 0.2 second otherwise mouse button release 
+                // in Dynamo window will forcefully shutdown all the open SearchBars
+                if ((new TimeSpan(DateTime.Now.Ticks - ViewModel.GetLastStateTimestamp().Ticks)).TotalSeconds > 0.2)
+                {
+                    ShowHideNodeAutoCompleteControl(ShowHideFlags.Hide);
+                    ViewModel.CancelActiveState();
+                }
             }
         }
 
@@ -333,7 +374,7 @@ namespace Dynamo.Views
                 oldViewModel.RequestAddViewToOuterCanvas -= vm_RequestAddViewToOuterCanvas;
                 oldViewModel.WorkspacePropertyEditRequested -= VmOnWorkspacePropertyEditRequested;
                 oldViewModel.RequestSelectionBoxUpdate -= VmOnRequestSelectionBoxUpdate;
-                this.removeViewModelsubscriptions(oldViewModel);
+                removeViewModelsubscriptions(oldViewModel);
             }
 
             if (ViewModel != null)
@@ -349,6 +390,7 @@ namespace Dynamo.Views
                 ViewModel.RequestAddViewToOuterCanvas += vm_RequestAddViewToOuterCanvas;
                 ViewModel.WorkspacePropertyEditRequested += VmOnWorkspacePropertyEditRequested;
                 ViewModel.RequestSelectionBoxUpdate += VmOnRequestSelectionBoxUpdate;
+                ViewModel.RequestNodeAutoCompleteSearch += ShowHideNodeAutoCompleteControl;
 
                 ViewModel.Loaded();
             }

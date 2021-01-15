@@ -1,4 +1,5 @@
 ﻿using System;
+using Dynamo.Configuration;
 using Microsoft.Practices.Prism.ViewModel;
 using Newtonsoft.Json;
 

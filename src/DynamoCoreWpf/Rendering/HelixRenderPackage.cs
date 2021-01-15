@@ -4,7 +4,6 @@ using System.Linq;
 using Autodesk.DesignScript.Interfaces;
 using Dynamo.Visualization;
 using HelixToolkit.Wpf.SharpDX;
-using HelixToolkit.Wpf.SharpDX.Core;
 using SharpDX;
 using ITransformable = Autodesk.DesignScript.Interfaces.ITransformable;
 
@@ -13,6 +12,7 @@ namespace Dynamo.Wpf.Rendering
     /// <summary>
     /// A Helix-specific IRenderPackageFactory implementation.
     /// </summary>
+    [Obsolete("Do not use! This will be moved to a new project in a future version of Dynamo.")]
     public class HelixRenderPackageFactory : IRenderPackageFactory
     {
         private const int MaxTessellationDivisionsDefault = 128;
@@ -36,6 +36,7 @@ namespace Dynamo.Wpf.Rendering
     /// <summary>
     /// A Helix-specifc IRenderPackage implementation.
     /// </summary>
+    [Obsolete("Do not use! This will be moved to a new project in a future version of Dynamo.")]
     public class HelixRenderPackage : IRenderPackage, ITransformable
     {
         #region private members
@@ -79,6 +80,7 @@ namespace Dynamo.Wpf.Rendering
         /// Set the transform that is applied to all geometry in the renderPackage.
         /// </summary>
         /// <param name="transform"></param>
+        [Obsolete("This method will be removed in 3.0. Use SetTransform(double[] matrix) instead.")]
         public void SetTransform(Autodesk.DesignScript.Geometry.CoordinateSystem transform)
         {
             var xaxis = transform.XAxis;
@@ -95,12 +97,14 @@ namespace Dynamo.Wpf.Rendering
             this.Transform = csAsMat.ToArray();
         }
 
+        
         /// <summary>
         /// Set the transform that is applied to all geometry in the renderPackage
         /// by computing the matrix that transforms between from and to.
         /// </summary>
         /// <param name="from"></param>
         /// <param name="to"></param>
+        [Obsolete("This method will be removed in 3.0.")]
         public void SetTransform(Autodesk.DesignScript.Geometry.CoordinateSystem from, Autodesk.DesignScript.Geometry.CoordinateSystem to)
         {
             var inverse = from.Inverse();
@@ -149,8 +153,14 @@ namespace Dynamo.Wpf.Rendering
 
         /// <summary>
         /// Set the transform as a double array, this transform is applied to all geometry in the renderPackage.
-        /// NOTE: this matrix is assumed to be in row vector form, and will be transformed into the neccesary form
-        /// for helix
+        /// This matrix should be laid out as follows in row vector order:
+        /// [Xx,Xy,Xz, 0,
+        ///  Yx, Yy, Yz, 0,
+        ///  Zx, Zy, Zz, 0,
+        ///  offsetX, offsetY, offsetZ, W]
+        /// NOTE: This method should transform the matrix from row vector order to whatever form is needed by the implementation.
+        /// When converting from ProtoGeometry CoordinateSystem form to input matrix, set the first row to the X axis of the CS,
+        /// the second row to the Y axis of the CS, the third row to the Z axis of the CS, and the last row to the CS origin, where W = 1. 
         /// </summary>
         /// <param name="matrix"></param>
         public void SetTransform(double[] matrix)
@@ -620,7 +630,7 @@ namespace Dynamo.Wpf.Rendering
         internal static string CleanTag(string tag)
         {
             var splits = tag.Split(':');
-            return splits.Count() <= 1 ? "[0]" : string.Format("[{0}]", string.Join(",", splits.Skip(1)));
+            return splits.Count() <= 1 ? tag : string.Format("[{0}]", string.Join(",", splits.Skip(1)));
         }
 
         private static Color4 Color4FromBytes(byte red, byte green, byte blue, byte alpha)

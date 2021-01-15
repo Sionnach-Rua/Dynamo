@@ -8,8 +8,13 @@ using NUnit.Framework;
 namespace Dynamo.Tests
 {
     [TestFixture]
-    public class libGPreloaderTests
+    public class libGPreloaderTests : UnitTestBase
     {
+        private List<string> LoadListFromCsv(string fileName)
+        {
+            var path = Path.Combine(TestDirectory, @"core\libGPreloader", fileName);
+            return File.ReadAllText(path).Split(';').ToList();
+        }
 
         [Test]
         public void GetInstalledASMVersions2_FindsVersionedLibGFolders()
@@ -442,6 +447,45 @@ namespace Dynamo.Tests
             {
                 var preloader = new Preloader(Path.GetTempPath(), new[] { new Version(999, 999, 999) });
             });
+        }
+
+        [Test]
+        public void ASM227InstallationsAreValidated()
+        {
+            var incomplete227List = LoadListFromCsv("incomplete227List.csv");
+            Assert.IsFalse(DynamoShapeManager.Utilities.IsASMInstallationComplete(incomplete227List, 227));
+            // Add missing DLLs. Now the the installation should be valid.
+            incomplete227List.Add("tsplines9A.dll");
+            Assert.IsTrue(DynamoShapeManager.Utilities.IsASMInstallationComplete(incomplete227List, 227));
+        }
+
+        [Test]
+        public void ASM226InstallationsAreValidated()
+        {
+            var incomplete226List = LoadListFromCsv("incomplete226List.csv");
+            Assert.IsFalse(DynamoShapeManager.Utilities.IsASMInstallationComplete(incomplete226List, 226));
+            // Add missing DLLs. Now the the installation should be valid.
+            incomplete226List.Add("tsplines8A.dll");
+            incomplete226List.Add("AdpSDKUI.dll");
+            Assert.IsTrue(DynamoShapeManager.Utilities.IsASMInstallationComplete(incomplete226List, 226));
+        }
+
+        [Test]
+        public void ASM225InstallationsAreValidated()
+        {
+            var incomplete225List = LoadListFromCsv("incomplete225List.csv");
+            Assert.IsFalse(DynamoShapeManager.Utilities.IsASMInstallationComplete(incomplete225List, 225));
+            // Add missing DLLs. Now the the installation should be valid.
+            incomplete225List.Add("tsplines7A.dll");
+            incomplete225List.Add("ASMMATRIX225A.dll");
+            incomplete225List.Add("ASMRB225A.dll");
+            Assert.IsTrue(DynamoShapeManager.Utilities.IsASMInstallationComplete(incomplete225List, 225));
+        }
+
+        [Test]
+        public void UnknownASMVersionInstallationsAreDiscarded()
+        {
+            Assert.IsFalse(DynamoShapeManager.Utilities.IsASMInstallationComplete(new List<string>(), 0));
         }
     }
 }

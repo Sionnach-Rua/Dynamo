@@ -205,9 +205,9 @@
             </ColumnDefinition>
             <!--MinWidth fix for GridSplitter dragging in frameless window-->
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="5*" MinWidth="200" />
+            <ColumnDefinition Width="5*" MinWidth="200" Name="CanvasColumn" />
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition MaxWidth="500"
+            <ColumnDefinition Width="0"
                               MinWidth="1"
                               Name="RightExtensionsViewColumn">
             </ColumnDefinition>
@@ -583,8 +583,8 @@
                             </MenuItem>
 
                             <MenuItem Header="{x:Static p:Resources.DynamoViewViewMenuShowGrid}"
-                                      IsEnabled="{Binding BackgroundPreviewActive}"
-                                      IsChecked="{Binding BackgroundPreviewViewModel.IsGridVisible}"
+                                      IsEnabled="True"
+                                      IsChecked="{Binding PreferenceSettings.IsBackgroundGridVisible}"
                                       Focusable="False"
                                       Command="{Binding ToggleBackgroundGridVisibilityCommand}" />
 
@@ -712,6 +712,35 @@
                                   IsChecked="{Binding ShowPreviewBubbles, Mode=TwoWay}"
                                   Header="{x:Static p:Resources.DynamoViewSettingsMenuShowPreviewBubbles}"/>
                         <MenuItem Focusable="False"
+                                  IsCheckable="True"
+                                  IsChecked="{Binding ShowCodeBlockLineNumber, Mode=TwoWay}"
+                                  Header="{x:Static p:Resources.DynamoViewSettingsMenuShowCodeBlockNodeLineNumber}"/>
+                        <MenuItem Focusable="False"
+                                  IsCheckable="True"
+                                  IsChecked="{Binding IsIronPythonDialogDisabled, Mode=TwoWay}"
+                                  Header="{x:Static p:Resources.DynamoViewSettingsMenuIsIronPythonDialogDisabled}"
+                                  Visibility="{Binding IsPython2ObsoleteDebugModeEnabled, Converter={StaticResource BooleanToVisibilityCollapsedConverter}}"/>
+                        <MenuItem Focusable="False"
+                                  IsCheckable="True"
+                                  IsChecked="{Binding ShowTabsAndSpacesInScriptEditor, Mode=TwoWay}"
+                                  Header="{x:Static p:Resources.DynamoViewSettingsMenuShowTabsAndSpacesInScriptEditor}"/>
+                        <MenuItem Focusable="False"
+                                  Header="{x:Static p:Resources.DynamoViewSettingsDefaultPythonEngine}"
+                                  Name="PythonEngine">
+                            <MenuItem Focusable="False"
+                                      Header="{x:Static p:Resources.DefaultPythonEngineNone}"
+                                      IsCheckable="True"
+                                      IsChecked="{Binding DefaultPythonEngine,Converter={StaticResource CompareToParameterConverter},ConverterParameter='', Mode=TwoWay}"/>
+                            <MenuItem Focusable="False"
+                                      Header="IronPython2"
+                                      IsCheckable="True"
+                                      IsChecked="{Binding DefaultPythonEngine,Converter={StaticResource CompareToParameterConverter},ConverterParameter='IronPython2', Mode=TwoWay}"/>
+                            <MenuItem Focusable="False"
+                                      Header="CPython3"
+                                      IsCheckable="True"
+                                      IsChecked="{Binding DefaultPythonEngine,Converter={StaticResource CompareToParameterConverter},ConverterParameter='CPython3', Mode=TwoWay}" />
+                        </MenuItem>
+                        <MenuItem Focusable="False"
                                   Header="{x:Static p:Resources.DynamoViewSettingMenuManagePackagePath}"
                                   Command="{Binding ManagePackagePathsCommand}"
                                   Name="managePackagePaths" />
@@ -722,6 +751,10 @@
                                   IsCheckable="True"
                                   IsChecked="{Binding EnableTSpline}"
                                   Header="{x:Static p:Resources.DynamoViewSettingEnableTSplineNodes}" />
+                            <MenuItem Name="EnableNodeAutoComplete"
+                                  IsCheckable="True"
+                                  IsChecked="{Binding EnableNodeAutoComplete}"
+                                  Header="{x:Static p:Resources.DynamoViewSettingEnableNodeAutoComplete}" />
                         </MenuItem>
                     </MenuItem>
 
@@ -810,7 +843,12 @@
                                   Header="{x:Static p:Resources.DynamoViewDebugMenuDumpLibrary}"
                                   Command="{Binding DumpLibraryToXmlCommand}"
                                   IsEnabled="True" />
-                    </MenuItem>
+                        <MenuItem Focusable="False"
+                                  Name="DebugModes"
+                                  Header="{x:Static p:Resources.DynamoViewDebugMenuDebugModes}"
+                                  Click="OnDebugModesClick"
+                                  IsCheckable="False" />
+               </MenuItem>
                 </Menu>
 
                 <!--Titlebar buttons-->
@@ -1490,7 +1528,7 @@
                     VerticalAlignment="Top"
                     Margin="0,310,0,0">
             <Grid Background="#353535"
-                  Width="100"
+                  Width="Auto"
                   Cursor="Hand">
                 <Button Click="OnCollapsedLeftSidebarClick"
                         Template="{DynamicResource BackgroundButton}">
@@ -1507,8 +1545,8 @@
                             </Border>
                         </ControlTemplate>
                     </Button.Resources>
-                    <Grid Mouse.MouseEnter="Button_MouseEnter"
-                          Mouse.MouseLeave="Button_MouseLeave">
+                    <Grid Mouse.MouseEnter="LibraryHandle_MouseEnter"
+                          Mouse.MouseLeave="LibraryHandle_MouseLeave">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -1555,9 +1593,10 @@
                     Background="{StaticResource HighlightedBrush}"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
-                    Margin="0,310,-79,0">
+                    Margin="0,310,0,0"
+                    RenderTransformOrigin="1,0">
             <Grid Background="#353535"
-                  Width="100"
+                  Width="Auto"
                   Cursor="Hand">
                 <Button Click="OnCollapsedRightSidebarClick"
                         Template="{DynamicResource BackgroundButton}">
@@ -1574,22 +1613,14 @@
                             </Border>
                         </ControlTemplate>
                     </Button.Resources>
-                    <Grid Mouse.MouseEnter="Button_MouseEnter"
-                          Mouse.MouseLeave="Button_MouseLeave">
+                    <Grid Mouse.MouseEnter="ExtensionHandle_MouseEnter"
+                          Mouse.MouseLeave="ExtensionHandle_MouseLeave">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Orientation="Horizontal" 
                                     HorizontalAlignment="Center">
-                            <TextBlock Grid.Column="0"
-                                   Name="ExtensionSidebarText"
-                                   VerticalAlignment="Center"
-                                   Foreground="#aaaaaa"
-                                   FontWeight="Normal"
-                                   Margin="5,0,0,5"
-                                   Text="{x:Static p:Resources.ExtensionsViewTitle}">
-                            </TextBlock>
                             <Image Grid.Column="0"
                                Name="ExtensionSidebarIcon"
                                Source="/DynamoCoreWpf;component/UI/Images/expand_normal.png"
@@ -1599,9 +1630,21 @@
                                Margin="5,5,5,5"
                                RenderTransformOrigin="0.5, 0.5">
                                 <Image.RenderTransform>
-                                    <RotateTransform Angle="90" />
+                                    <RotateTransform Angle="-90" />
                                 </Image.RenderTransform>
                             </Image>
+                            <TextBlock Grid.Column="0"
+                                   Name="ExtensionSidebarText"
+                                   VerticalAlignment="Center"
+                                   Foreground="#aaaaaa"
+                                   FontWeight="Normal"
+                                   Margin="0,5,5,0"
+                                   Text="{x:Static p:Resources.ExtensionsViewTitle}"
+                                   RenderTransformOrigin="0.5,0.5">
+                                <TextBlock.RenderTransform>
+                                    <RotateTransform Angle="180"/>
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
                         </StackPanel>
                     </Grid>
                 </Button>
@@ -1609,7 +1652,7 @@
             </Grid>
 
             <StackPanel.RenderTransform>
-                <RotateTransform Angle="-90" />
+                <RotateTransform Angle="90" />
             </StackPanel.RenderTransform>
         </StackPanel>
 
@@ -1722,6 +1765,26 @@
                                                 <Trigger Property="IsMouseOver" Value="True">
                                                     <Setter Property="Source"
                                                             Value="/DynamoCoreWpf;component/UI/Images/closetab_hover.png" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Image.Style>
+                                </Image>
+                            </Button>
+                            <!-- Undock -->
+                            <Button Name="UndockButton" Style="{StaticResource CloseButtonStyle}" DockPanel.Dock="Right" Click="UndockExtensionTab"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource AncestorType={x:Type TabItem}}, Path=Name}">
+                                <Image Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Image.Style>
+                                        <Style TargetType="{x:Type Image}">
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="False">
+                                                    <Setter Property="Source"
+                                                            Value="/DynamoCoreWpf;component/UI/Images/undock_normal.png" />
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Source"
+                                                            Value="/DynamoCoreWpf;component/UI/Images/undock_hover.png" />
                                                 </Trigger>
                                             </Style.Triggers>
                                         </Style>

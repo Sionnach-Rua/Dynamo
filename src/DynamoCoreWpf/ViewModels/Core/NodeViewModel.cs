@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using Dynamo.Configuration;
 using Dynamo.Engine.CodeGeneration;
 using Dynamo.Graph;
@@ -31,6 +32,8 @@ namespace Dynamo.ViewModels
         public delegate void NodeDialogEventHandler(object sender, NodeDialogEventArgs e);
         public delegate void SnapInputEventHandler(PortViewModel portViewModel);
         public delegate void PreviewPinStatusHandler(bool pinned);
+
+        internal delegate void NodeAutoCompletePopupEventHandler(Popup popup);
         #endregion
 
         #region events
@@ -49,6 +52,7 @@ namespace Dynamo.ViewModels
         private string astText = string.Empty;
         private bool isexplictFrozen;
         private bool canToggleFrozen = true;
+        private bool isRenamed = false;
         #endregion
 
         #region public members
@@ -161,8 +165,10 @@ namespace Dynamo.ViewModels
             {
                 if (nodeLogic.IsSetAsInput != value)
                 {
-                    nodeLogic.IsSetAsInput = value;
-                    RaisePropertyChanged("IsSetAsInput");
+                    DynamoViewModel.ExecuteCommand(new DynamoModel.UpdateModelValueCommand(
+                        Guid.Empty, NodeModel.GUID, nameof(IsSetAsInput), value.ToString()));
+
+                    RaisePropertyChanged(nameof(IsSetAsInput));
                 }
             }
         }
@@ -186,8 +192,10 @@ namespace Dynamo.ViewModels
             {
                 if (nodeLogic.IsSetAsOutput != value)
                 {
-                    nodeLogic.IsSetAsOutput = value;
-                    RaisePropertyChanged("IsSetAsOutput");
+                    DynamoViewModel.ExecuteCommand(new DynamoModel.UpdateModelValueCommand(
+                        Guid.Empty, NodeModel.GUID, nameof(IsSetAsOutput), value.ToString()));
+
+                    RaisePropertyChanged(nameof(IsSetAsOutput));
                 }
             }
         }
@@ -197,8 +205,41 @@ namespace Dynamo.ViewModels
         /// </summary>
         public string Name
         {
-            get { return nodeLogic.Name; }
+            get
+            {
+                IsRenamed = OriginalName != nodeLogic.Name;
+                return nodeLogic.Name;
+            }
             set { nodeLogic.Name = value; }
+        }
+
+        /// <summary>
+        /// The original name of the node. Notice this property will return
+        /// current node name if the node is dummy node or unloaded custom node.
+        /// </summary>
+        [JsonIgnore]
+        public string OriginalName
+        {
+            get { return nodeLogic.GetOriginalName(); }
+        }
+
+
+        /// <summary>
+        /// If a node has been renamed. Notice this boolean will be disabled
+        /// (always false) if the node is dummy node or unloaded custom node.
+        /// </summary>
+        [JsonIgnore]
+        public bool IsRenamed
+        {
+            get { return isRenamed; }
+            set
+            {
+                if (isRenamed != value)
+                {
+                    isRenamed = value;
+                    RaisePropertyChanged(nameof(IsRenamed));
+                }
+            }
         }
 
         [JsonIgnore]
@@ -290,7 +331,7 @@ namespace Dynamo.ViewModels
             }
         }
 
-    
+
         [JsonIgnore]
         public Visibility PeriodicUpdateVisibility
         {
@@ -336,8 +377,13 @@ namespace Dynamo.ViewModels
             get { return nodeLogic.DisplayLabels; }
             set
             {
-                nodeLogic.DisplayLabels = value;
-                RaisePropertyChanged("IsDisplayingLabels");
+                if (nodeLogic.DisplayLabels != value)
+                {
+                    DynamoViewModel.ExecuteCommand(new DynamoModel.UpdateModelValueCommand(
+                    Guid.Empty, NodeModel.GUID, nameof(nodeLogic.DisplayLabels), value.ToString()));
+
+                    RaisePropertyChanged(nameof(IsDisplayingLabels));
+                }
             }
         }
 
@@ -517,9 +563,20 @@ namespace Dynamo.ViewModels
             }
         }
 
+        internal double ActualHeight { get; set; }
+        internal double ActualWidth { get; set; }
+
         #endregion
 
         #region events
+
+        internal event NodeAutoCompletePopupEventHandler RequestAutoCompletePopupPlacementTarget;
+
+        internal void OnRequestAutoCompletePopupPlacementTarget(Popup popup)
+        {
+            RequestAutoCompletePopupPlacementTarget?.Invoke(popup);
+        }
+
         public event NodeDialogEventHandler RequestShowNodeHelp;
         public virtual void OnRequestShowNodeHelp(Object sender, NodeDialogEventArgs e)
         {
@@ -763,8 +820,14 @@ namespace Dynamo.ViewModels
                     RaisePropertyChanged("Height");
                     UpdateErrorBubblePosition();
                     break;
-                case "DisplayLabels":
-                    RaisePropertyChanged("IsDisplayingLables");
+                case nameof(NodeModel.DisplayLabels):
+                    RaisePropertyChanged(nameof(IsDisplayingLabels));
+                    break;
+                case nameof(NodeModel.IsSetAsInput):
+                    RaisePropertyChanged(nameof(IsSetAsInput));
+                    break;
+                case nameof(NodeModel.IsSetAsOutput):
+                    RaisePropertyChanged(nameof(IsSetAsOutput));
                     break;
                 case "Position":
                     UpdateErrorBubblePosition();
@@ -863,7 +926,7 @@ namespace Dynamo.ViewModels
         {
             DynamoViewModel.ExecuteCommand(
                 new DynamoModel.UpdateModelValueCommand(
-                    Guid.Empty, NodeModel.GUID, "ArgumentLacing", param.ToString()));
+                    Guid.Empty, NodeModel.GUID, nameof(ArgumentLacing), param.ToString()));
 
             DynamoViewModel.RaiseCanExecuteUndoRedo();
         }

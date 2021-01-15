@@ -123,8 +123,12 @@ namespace Dynamo.WorkspaceDependency
         /// <param name="ws">workspace model</param>
         internal void DependencyRegen(WorkspaceModel ws)
         {
-            this.RestartBanner.Visibility = Visibility.Hidden;
-            var packageDependencies = ws.NodeLibraryDependencies.Where(d => d is PackageDependencyInfo);
+            RestartBanner.Visibility = Visibility.Hidden;
+            var packageDependencies = ws.NodeLibraryDependencies.Where(d => d is PackageDependencyInfo).ToList();
+
+            var pythonPackageDependencies = ws.OnRequestPackageDependencies();
+            if (pythonPackageDependencies != null)
+                packageDependencies.AddRange(pythonPackageDependencies);
 
             if (packageDependencies.Any(d => d.State != PackageDependencyState.Loaded))
             {
@@ -137,7 +141,8 @@ namespace Dynamo.WorkspaceDependency
                 // If package is set to uninstall state, update the package info
                 foreach (var package in dependencyViewExtension.pmExtension.PackageLoader.LocalPackages.Where(x => x.MarkedForUninstall))
                 {
-                    (packageDependencies.Where(x => x.Name == package.Name).FirstOrDefault() as PackageDependencyInfo).State = PackageDependencyState.RequiresRestart;
+                    (packageDependencies.FirstOrDefault(x => x.Name == package.Name) as PackageDependencyInfo).State = 
+                        PackageDependencyState.RequiresRestart;
                     hasPackageMarkedForUninstall = true;
                 }
                 this.RestartBanner.Visibility = hasPackageMarkedForUninstall ? Visibility.Visible: Visibility.Hidden;
@@ -172,7 +177,6 @@ namespace Dynamo.WorkspaceDependency
             packageInstaller = p.PackageInstaller;
             dependencyViewExtension = viewExtension;
             DependencyRegen(currentWorkspace);
-            DynamoView.CloseExtension += this.OnExtensionTabClosedHandler;
             HomeWorkspaceModel.WorkspaceClosed += this.CloseExtensionTab;
         }
 
@@ -182,20 +186,6 @@ namespace Dynamo.WorkspaceDependency
         internal void CloseExtensionTab()
         {
             loadedParams.CloseExtensioninInSideBar(dependencyViewExtension);
-        }
-
-        /// <summary>
-        /// This event is raised when an extension tab is closed and this event 
-        /// is subscribed by the Workspace dependency view extension.
-        /// <param name="extensionTabName"></param>
-        /// </summary>
-        internal event Action<String> OnExtensionTabClosed;
-        private void OnExtensionTabClosedHandler(String extensionTabName)
-        {
-            if (OnExtensionTabClosed != null)
-            {
-                OnExtensionTabClosed(extensionTabName);
-            }
         }
 
         /// <summary>
@@ -275,9 +265,11 @@ namespace Dynamo.WorkspaceDependency
         {
             loadedParams.CurrentWorkspaceChanged -= OnWorkspaceChanged;
             loadedParams.CurrentWorkspaceCleared -= OnWorkspaceCleared;
+            currentWorkspace.PropertyChanged -= OnWorkspacePropertyChanged;
             WorkspaceModel.DummyNodesReloaded -= TriggerDependencyRegen;
-            DynamoView.CloseExtension -= this.OnExtensionTabClosedHandler;
             HomeWorkspaceModel.WorkspaceClosed -= this.CloseExtensionTab;
+            PackageDependencyTable.ItemsSource = null;
+            dataRows = null;
         }
 
         private void Refresh_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Configuration;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -114,6 +115,7 @@ namespace Dynamo.Models
         private Timer backupFilesTimer;
         private Dictionary<Guid, string> backupFilesDict = new Dictionary<Guid, string>();
         internal readonly Stopwatch stopwatch = Stopwatch.StartNew();
+
         #endregion
 
         #region events
@@ -199,11 +201,11 @@ namespace Dynamo.Models
                 ShutdownCompleted(this);
         }
 
-         /// <summary>
-         /// This event is raised when Dynamo is ready for user interaction.
-         /// </summary>
-         public event Action<ReadyParams> DynamoReady;
-         private bool dynamoReady;
+        /// <summary>
+        /// This event is raised when Dynamo is ready for user interaction.
+        /// </summary>
+        public event Action<ReadyParams> DynamoReady;
+        private bool dynamoReady;
 
         #endregion
 
@@ -365,7 +367,7 @@ namespace Dynamo.Models
                 var old = currentWorkspace;
                 currentWorkspace = value;
                 OnWorkspaceHidden(old);
-                OnPropertyChanged("CurrentWorkspace");
+                OnPropertyChanged(nameof(CurrentWorkspace));
             }
         }
 
@@ -421,6 +423,8 @@ namespace Dynamo.Models
         /// Returns authentication manager object for oxygen authentication.
         /// </summary>
         public AuthenticationManager AuthenticationManager { get; set; }
+
+        internal static string DefaultPythonEngine { get; private set; }
 
         #endregion
 
@@ -521,6 +525,10 @@ namespace Dynamo.Models
             public TaskProcessMode ProcessMode { get; set; }
             public bool IsHeadless { get; set; }
             public string PythonTemplatePath { get; set; }
+            /// <summary>
+            /// Default Python script engine
+            /// </summary>
+            public string DefaultPythonEngine { get; set; }
         }
 
         /// <summary>
@@ -552,6 +560,13 @@ namespace Dynamo.Models
         /// <param name="config">Start configuration</param>
         protected DynamoModel(IStartConfiguration config)
         {
+            if (config is DefaultStartConfiguration)
+            {
+                // This is not exposed in IStartConfiguration to avoid a breaking change.
+                // TODO: This fact should probably be revisited in 3.0.
+                DefaultPythonEngine = ((DefaultStartConfiguration)config).DefaultPythonEngine;
+            }
+
             ClipBoard = new ObservableCollection<ModelBase>();
 
             pathManager = new PathManager(new PathManagerParams
@@ -570,7 +585,7 @@ namespace Dynamo.Models
             IsHeadless = config.IsHeadless;
 
             DebugSettings = new DebugSettings();
-            Logger = new DynamoLogger(DebugSettings, pathManager.LogDirectory);
+            Logger = new DynamoLogger(DebugSettings, pathManager.LogDirectory, IsTestMode);
 
             foreach (var exception in exceptions)
             {
@@ -595,7 +610,43 @@ namespace Dynamo.Models
                 PreferenceSettings.PropertyChanged += PreferenceSettings_PropertyChanged;
             }
 
-            InitializeInstrumentationLogger();
+            UpdateManager = config.UpdateManager ?? new DefaultUpdateManager(null);
+
+            var hostUpdateManager = config.UpdateManager;
+
+            if (hostUpdateManager != null)
+            {
+                HostName = hostUpdateManager.HostName;
+                HostVersion = hostUpdateManager.HostVersion == null ? null : hostUpdateManager.HostVersion.ToString();
+            }
+            else
+            {
+                HostName = string.Empty;
+                HostVersion = null;
+            }
+
+            bool areAnalyticsDisabledFromConfig = false;
+            try
+            {
+                // Dynamo, behind a proxy server, has been known to have issues loading the Analytics binaries.
+                // Using the "DisableAnalytics" configuration setting, a user can skip loading analytics binaries altogether.
+                var assemblyConfig = ConfigurationManager.OpenExeConfiguration(GetType().Assembly.Location);
+                if (assemblyConfig != null)
+                {
+                    var disableAnalyticsValue = assemblyConfig.AppSettings.Settings["DisableAnalytics"];
+                    if (disableAnalyticsValue != null)
+                        bool.TryParse(disableAnalyticsValue.Value, out areAnalyticsDisabledFromConfig);
+                }
+            }
+            catch (Exception)
+            {
+                // Do nothing for now
+            }
+            // If user skipped analytics from assembly config, do not try to launch the analytics client
+            if (!areAnalyticsDisabledFromConfig)
+            {
+                InitializeAnalyticsService();
+            }
 
             if (!IsTestMode && PreferenceSettings.IsFirstRun)
             {
@@ -742,21 +793,6 @@ namespace Dynamo.Models
 
             AuthenticationManager = new AuthenticationManager(config.AuthProvider);
 
-            UpdateManager = config.UpdateManager ?? new DefaultUpdateManager(null);
-
-            var hostUpdateManager = config.UpdateManager;
-
-            if (hostUpdateManager != null)
-            {
-                HostName = hostUpdateManager.HostName;
-                HostVersion = hostUpdateManager.HostVersion == null ? null : hostUpdateManager.HostVersion.ToString();
-            }
-            else
-            {
-                HostName = string.Empty;
-                HostVersion = null;
-            }
-
             UpdateManager.Log += UpdateManager_Log;
             if (!IsTestMode && !IsHeadless)
             {
@@ -785,11 +821,11 @@ namespace Dynamo.Models
                         ext.Startup(startupParams);
                         // if we are starting extension (A) which is a source of other extensions (like packageManager)
                         // then we can start the extension(s) (B) that it requested be loaded.
-                        if(ext is IExtensionSource)
+                        if (ext is IExtensionSource)
                         {
-                           foreach(var loadedExtension in((ext as IExtensionSource).RequestedExtensions))
+                            foreach (var loadedExtension in (ext as IExtensionSource).RequestedExtensions)
                             {
-                                if(loadedExtension is IExtension)
+                                if (loadedExtension is IExtension)
                                 {
                                     (loadedExtension as IExtension).Startup(startupParams);
                                 }
@@ -812,7 +848,7 @@ namespace Dynamo.Models
 
             TraceReconciliationProcessor = this;
             // This event should only be raised at the end of this method.
-             DynamoReady(new ReadyParams(this));
+            DynamoReady(new ReadyParams(this));
         }
 
         private void SetDefaultPythonTemplate()
@@ -832,7 +868,8 @@ namespace Dynamo.Models
             }
         }
 
-        private void DynamoReadyExtensionHandler(ReadyParams readyParams, IEnumerable<IExtension> extensions) {
+        private void DynamoReadyExtensionHandler(ReadyParams readyParams, IEnumerable<IExtension> extensions)
+        {
 
             foreach (var ext in extensions)
             {
@@ -842,7 +879,7 @@ namespace Dynamo.Models
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log(ex.Message);
+                    Logger.Log(String.Format(Properties.Resources.FailedToHandleReadyEvent, ext.Name, " ", ex.Message));
                 }
             }
         }
@@ -1007,18 +1044,19 @@ namespace Dynamo.Models
 
                         if (Logging.Analytics.ReportingAnalytics)
                         {
-                            var modifiedNodes = "";
                             if (updateTask.ModifiedNodes != null && updateTask.ModifiedNodes.Any())
                             {
-                                modifiedNodes = updateTask.ModifiedNodes
-                                    .Select(n => n.GetOriginalName())
-                                    .Aggregate((x, y) => string.Format("{0}, {1}", x, y));
+                                // Send analytics for each of modified nodes so they are counted individually
+                                foreach (var node in updateTask.ModifiedNodes)
+                                {
+                                    // Tracking node execution as generic event
+                                    // it is distinguished with the legacy aggregated performance event
+                                    Dynamo.Logging.Analytics.TrackEvent(
+                                        Actions.Run, 
+                                        Categories.NodeOperations,
+                                        node.GetOriginalName());
+                                }
                             }
-
-                            Dynamo.Logging.Analytics.TrackTimedEvent(
-                                Categories.Performance,
-                                e.Task.GetType().Name,
-                                executionTimeSpan, modifiedNodes);
                         }
 
                         Debug.WriteLine(String.Format(Resources.EvaluationCompleted, executionTimeSpan));
@@ -1036,12 +1074,15 @@ namespace Dynamo.Models
         public void Dispose()
         {
             EngineController.TraceReconcliationComplete -= EngineController_TraceReconcliationComplete;
+            EngineController.RequestCustomNodeRegistration -= EngineController_RequestCustomNodeRegistration;
 
             ExtensionManager.Dispose();
             extensionManager.MessageLogged -= LogMessage;
 
             LibraryServices.Dispose();
             LibraryServices.LibraryManagementCore.Cleanup();
+            LibraryServices.MessageLogged -= LogMessage;
+            LibraryServices.LibraryLoaded -= LibraryLoaded;
 
             EngineController.VMLibrariesReset -= ReloadDummyNodes;
 
@@ -1068,6 +1109,11 @@ namespace Dynamo.Models
             {
                 ws.Dispose();
             }
+            NodeFactory.MessageLogged -= LogMessage;
+            CustomNodeManager.MessageLogged -= LogMessage;
+            CustomNodeManager.Dispose();
+            MigrationManager.MessageLogged -= LogMessage;
+
         }
 
         private void InitializeCustomNodeManager()
@@ -1197,21 +1243,7 @@ namespace Dynamo.Models
             Loader.LoadNodeModelsAndMigrations(pathManager.NodeDirectories,
                 Context, out modelTypes, out migrationTypes);
 
-            // Load NodeModels
-            foreach (var type in modelTypes)
-            {
-                // Protect ourselves from exceptions thrown by malformed third party nodes.
-                try
-                {
-                    NodeFactory.AddTypeFactoryAndLoader(type.Type);
-                    NodeFactory.AddAlsoKnownAs(type.Type, type.AlsoKnownAs);
-                    AddNodeTypeToSearch(type);
-                }
-                catch (Exception e)
-                {
-                    Logger.Log(e);
-                }
-            }
+            LoadNodeModels(modelTypes, false);
 
             // Load migrations
             foreach (var type in migrationTypes)
@@ -1271,19 +1303,24 @@ namespace Dynamo.Models
             {
                 if (suppressZeroTouchLibraryLoad)
                 {
-                    LibraryServices.LoadNodeLibrary(assem.Location,false);
+                    LibraryServices.LoadNodeLibrary(assem.Location, false);
                 }
                 else
                 {
                     LibraryServices.ImportLibrary(assem.Location);
                 }
-               
+
                 return;
             }
 
             var nodes = new List<TypeLoadData>();
             Loader.LoadNodesFromAssembly(assem, Context, nodes, new List<TypeLoadData>());
 
+            LoadNodeModels(nodes, true);
+        }
+
+        private void LoadNodeModels(List<TypeLoadData> nodes, bool isPackageMember)
+        {
             foreach (var type in nodes)
             {
                 // Protect ourselves from exceptions thrown by malformed third party nodes.
@@ -1291,7 +1328,7 @@ namespace Dynamo.Models
                 {
                     NodeFactory.AddTypeFactoryAndLoader(type.Type);
                     NodeFactory.AddAlsoKnownAs(type.Type, type.AlsoKnownAs);
-                    type.IsPackageMember = true;
+                    type.IsPackageMember = isPackageMember;
                     AddNodeTypeToSearch(type);
                 }
                 catch (Exception e)
@@ -1301,7 +1338,7 @@ namespace Dynamo.Models
             }
         }
 
-        private void InitializeInstrumentationLogger()
+        private void InitializeAnalyticsService()
         {
             if (!IsTestMode && !IsHeadless)
             {
@@ -1451,6 +1488,7 @@ namespace Dynamo.Models
         {
             if (EngineController != null)
             {
+                EngineController.RequestCustomNodeRegistration -= EngineController_RequestCustomNodeRegistration;
                 EngineController.TraceReconcliationComplete -= EngineController_TraceReconcliationComplete;
                 EngineController.MessageLogged -= LogMessage;
                 EngineController.Dispose();
@@ -1464,7 +1502,14 @@ namespace Dynamo.Models
 
             EngineController.MessageLogged += LogMessage;
             EngineController.TraceReconcliationComplete += EngineController_TraceReconcliationComplete;
+            EngineController.RequestCustomNodeRegistration += EngineController_RequestCustomNodeRegistration;
 
+            foreach (var def in CustomNodeManager.LoadedDefinitions)
+                RegisterCustomNodeDefinitionWithEngine(def);
+        }
+
+        private void EngineController_RequestCustomNodeRegistration(object sender, EventArgs e)
+        {
             foreach (var def in CustomNodeManager.LoadedDefinitions)
                 RegisterCustomNodeDefinitionWithEngine(def);
         }
@@ -1772,8 +1817,6 @@ namespace Dynamo.Models
                     // If the resolved node is also a dummy node, then skip it else replace the dummy node with the resolved version of the node. 
                     if (!(resolvedNode is DummyNode))
                     {
-                        // Disable graph runs temporarily while the dummy node is replaced with the resolved version of that node.
-                        EngineController.DisableRun = true;
                         currentWorkspace.RemoveAndDisposeNode(dn);
                         currentWorkspace.AddAndRegisterNode(resolvedNode, false);
 
@@ -1796,7 +1839,6 @@ namespace Dynamo.Models
                             connectorModel.Delete();
                             ConnectorModel.Make(startNode, endNode, connectorModel.Start.Index, connectorModel.End.Index, connectorModel.GUID);
                         }
-                        EngineController.DisableRun = false ;
                         resolvedDummyNode = true;
                     }
                 }
@@ -2103,6 +2145,27 @@ namespace Dynamo.Models
                Resources.InvalidInputSymbolWarningTitle, summary, description);
 
             args.AddRightAlignedButton((int)ButtonId.Proceed, Resources.OKButton);
+            OnRequestTaskDialog(null, args);
+        }
+
+        internal event VoidHandler Preview3DOutage;
+        private void OnPreview3DOutage()
+        {
+            if (Preview3DOutage != null)
+            {
+                Preview3DOutage();
+            }
+        }
+
+        internal void Report3DPreviewOutage(string summary, string description)
+        {
+            OnPreview3DOutage();
+
+            const string imageUri = "/DynamoCoreWpf;component/UI/Images/task_dialog_future_file.png";
+            var args = new TaskDialogEventArgs(
+               new Uri(imageUri, UriKind.Relative),
+               Resources.Preview3DOutageTitle, summary, description);
+
             OnRequestTaskDialog(null, args);
         }
 
@@ -2495,7 +2558,7 @@ namespace Dynamo.Models
             }
         }
 
-        private void AddZeroTouchNodesToSearch(IEnumerable<FunctionGroup> functionGroups)
+        internal void AddZeroTouchNodesToSearch(IEnumerable<FunctionGroup> functionGroups)
         {
             foreach (var funcGroup in functionGroups)
                 AddZeroTouchNodeToSearch(funcGroup);

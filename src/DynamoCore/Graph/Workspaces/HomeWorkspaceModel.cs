@@ -324,6 +324,8 @@ namespace Dynamo.Graph.Workspaces
 
         private void LibraryLoaded(object sender, LibraryServices.LibraryLoadedEventArgs e)
         {
+            // Need to make compiled custom nodes available before running the graph.
+            EngineController.OnRequestCustomNodeRegistration();
             // Mark all nodes as dirty so that AST for the whole graph will be
             // regenerated.
             MarkNodesAsModifiedAndRequestRun(Nodes);
@@ -346,15 +348,7 @@ namespace Dynamo.Graph.Workspaces
                 // Make this RunSettings.RunEnabled private, introduce the new flag and remove the "executingTask" variable. 
                 if (RunSettings.RunEnabled || executingTask)
                 {
-                    // skip the execution if runs have been disabled - currently this flag is only set by the Package Loader
-                    if (!EngineController.DisableRun)
-                    {
-                        Run();
-                    }
-                    else
-                    {
-                        this.Log("Run has been disabled in the Engine Controller");
-                    }
+                    Run();
                 }   
             }
         }
@@ -466,6 +460,7 @@ namespace Dynamo.Graph.Workspaces
 
         #endregion
 
+        [Obsolete("Method will be deprecated in Dynamo 3.0.")]
         protected override bool PopulateXmlDocument(XmlDocument document)
         {
             if (!base.PopulateXmlDocument(document))

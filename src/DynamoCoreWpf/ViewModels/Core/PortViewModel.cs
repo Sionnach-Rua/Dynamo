@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using Dynamo.Graph.Nodes;
 using Dynamo.Models;
 using Dynamo.UI.Commands;
+using Dynamo.UI.Controls;
 using Dynamo.Utilities;
 
 namespace Dynamo.ViewModels
@@ -16,6 +18,7 @@ namespace Dynamo.ViewModels
         private readonly NodeViewModel _node;
         private DelegateCommand _useLevelsCommand;
         private DelegateCommand _keepListStructureCommand;
+        private const double autocompletePopupSpacing = 2.5;
 
         /// <summary>
         /// Port model.
@@ -226,6 +229,43 @@ namespace Dynamo.ViewModels
             _node.WorkspaceViewModel.PropertyChanged -= Workspace_PropertyChanged;
         }
 
+        /// <summary>
+        /// Sets up the node autocomplete window to be placed relative to the node.
+        /// </summary>
+        /// <param name="popup">Node autocomplete popup.</param>
+        internal void SetupNodeAutocompleteWindowPlacement(Popup popup)
+        {
+            _node.OnRequestAutoCompletePopupPlacementTarget(popup);
+            popup.CustomPopupPlacementCallback = PlaceAutocompletePopup;
+        }
+
+        private CustomPopupPlacement[] PlaceAutocompletePopup(Size popupSize, Size targetSize, Point offset)
+        {
+            var zoom = _node.WorkspaceViewModel.Zoom;
+
+            double x;
+            var scaledSpacing = autocompletePopupSpacing * targetSize.Width / _node.ActualWidth;
+            if (PortModel.PortType == PortType.Input)
+            {
+                // Offset popup to the left by its width from left edge of node and spacing.
+                x = -scaledSpacing - popupSize.Width;
+            }
+            else
+            {
+                // Offset popup to the right by node width and spacing from left edge of node.
+                x = scaledSpacing + targetSize.Width;
+            }
+            // Offset popup down from the upper edge of the node by the node header and corresponding to the respective port.
+            // Scale the absolute heights by the target height (passed to the callback) and the actual height of the node.
+            var scaledHeight = targetSize.Height / _node.ActualHeight;
+            var absoluteHeight = NodeModel.HeaderHeight + PortModel.Index * PortModel.Height;
+            var y = absoluteHeight * scaledHeight;
+
+            var placement = new CustomPopupPlacement(new Point(x, y), PopupPrimaryAxis.None);
+
+            return new[] { placement }; 
+        }
+
         private void Workspace_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             switch (e.PropertyName)
@@ -364,6 +404,23 @@ namespace Dynamo.ViewModels
             return true;
         }
 
+        // Handler to invoke node Auto Complete
+        private void AutoComplete(object parameter)
+        {
+            var wsViewModel = _node.WorkspaceViewModel;
+            var svm = wsViewModel.NodeAutoCompleteSearchViewModel;
+            svm.PortViewModel = this;
+
+            wsViewModel.OnRequestNodeAutoCompleteSearch(ShowHideFlags.Show);
+        }
+
+        private bool CanAutoComplete(object parameter)
+        {
+            DynamoViewModel dynamoViewModel = _node.DynamoViewModel;
+            // If the feature is enabled from Dynamo experiment setting and if user interaction is on input port.
+            return dynamoViewModel.EnableNodeAutoComplete && this.PortType == PortType.Input;
+        }
+
         /// <summary>
         /// Handles the Mouse enter event on the port
         /// </summary>
@@ -371,7 +428,9 @@ namespace Dynamo.ViewModels
         private void OnRectangleMouseEnter(object parameter)
         {
             if (MouseEnter != null)
+            {
                 MouseEnter(parameter, null);
+            }
         }
 
         /// <summary>
@@ -411,7 +470,5 @@ namespace Dynamo.ViewModels
         {
             ShowUseLevelMenu = false;
         }
-
-       
     }
 }

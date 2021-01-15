@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Configuration;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -23,6 +22,7 @@ using Dynamo.Graph.Workspaces;
 using Dynamo.Interfaces;
 using Dynamo.Models;
 using Dynamo.PackageManager;
+using Dynamo.Scheduler;
 using Dynamo.Selection;
 using Dynamo.Services;
 using Dynamo.UI;
@@ -34,9 +34,11 @@ using Dynamo.Wpf.Properties;
 using Dynamo.Wpf.UI;
 using Dynamo.Wpf.ViewModels;
 using Dynamo.Wpf.ViewModels.Core;
+using Dynamo.Wpf.ViewModels.Core.Converters;
 using Dynamo.Wpf.ViewModels.Watch3D;
 using DynamoUtilities;
 using ISelectable = Dynamo.Selection.ISelectable;
+using WpfResources = Dynamo.Wpf.Properties.Resources;
 
 namespace Dynamo.ViewModels
 {
@@ -66,8 +68,8 @@ namespace Dynamo.ViewModels
         private readonly DynamoModel model;
         private Point transformOrigin;
         private bool showStartPage = false;
-        
-        private List<DefaultWatch3DViewModel> watch3DViewModels = new List<DefaultWatch3DViewModel>();
+
+        private ObservableCollection<DefaultWatch3DViewModel> watch3DViewModels = new ObservableCollection<DefaultWatch3DViewModel>();
 
         /// <summary>
         /// An observable collection of workspace view models which tracks the model
@@ -275,6 +277,22 @@ namespace Dynamo.ViewModels
         }
 
         /// <summary>
+        /// Indicates if line numbers should be displayed on code block nodes.
+        /// </summary>
+        public bool ShowCodeBlockLineNumber
+        {
+            get
+            {
+                return model.PreferenceSettings.ShowCodeBlockLineNumber;
+            }
+            set
+            {
+                model.PreferenceSettings.ShowCodeBlockLineNumber = value;
+                RaisePropertyChanged(nameof(ShowCodeBlockLineNumber));
+            }
+        }
+
+        /// <summary>
         /// Indicates whether to make T-Spline nodes (under ProtoGeometry.dll) discoverable
         /// in the node search library.
         /// </summary>
@@ -289,6 +307,21 @@ namespace Dynamo.ViewModels
             {
                 model.HideUnhideNamespace(!value,
                     "ProtoGeometry.dll", "Autodesk.DesignScript.Geometry.TSpline");
+            }
+        }
+
+        /// <summary>
+        /// Indicates whether to enabled node Auto Complete feature for port interaction.
+        /// </summary>
+        public bool EnableNodeAutoComplete
+        {
+            get
+            {
+                return PreferenceSettings.EnableNodeAutoComplete;
+            }
+            set
+            {
+                PreferenceSettings.EnableNodeAutoComplete = value;
             }
         }
 
@@ -472,6 +505,70 @@ namespace Dynamo.ViewModels
 
         public bool HideReportOptions { get; }
 
+        /// <summary>
+        /// Indicates if whether the Iron Python dialog box should be displayed before each new session.
+        /// </summary>
+        public bool IsIronPythonDialogDisabled
+        {
+            get
+            {
+                return model.PreferenceSettings.IsIronPythonDialogDisabled;
+            }
+            set
+            {
+                model.PreferenceSettings.IsIronPythonDialogDisabled = value;
+                RaisePropertyChanged(nameof(IsIronPythonDialogDisabled));
+            }
+        }
+
+
+        private DynamoPythonScriptEditorTextOptions editTextOptions = new DynamoPythonScriptEditorTextOptions();
+        /// <summary>
+        /// Gets/Sets the text editor options for python script editor.
+        /// </summary>
+        internal DynamoPythonScriptEditorTextOptions PythonScriptEditorTextOptions
+        {
+            get
+            {
+                return editTextOptions;
+            }
+        } 
+
+
+        /// <summary>
+        /// Indicates if the whitespaces and tabs should be visible in the python script editor.
+        /// This property is for the global whitespace toggle option in settings menu.
+        /// </summary>
+        public bool ShowTabsAndSpacesInScriptEditor
+        {
+            get
+            {
+                return model.PreferenceSettings.ShowTabsAndSpacesInScriptEditor;
+            }
+            set
+            {
+                PythonScriptEditorTextOptions.ShowWhiteSpaceCharacters(value);
+                model.PreferenceSettings.ShowTabsAndSpacesInScriptEditor = value;
+                RaisePropertyChanged(nameof(ShowTabsAndSpacesInScriptEditor));
+            }
+        }
+
+        /// <summary>
+        /// Engine used by default for new Python script and string nodes. If not empty, this takes precedence over any system settings.
+        /// </summary>
+        public string DefaultPythonEngine
+        {
+            get { return model.PreferenceSettings.DefaultPythonEngine; }
+            set
+            {
+                if (value != model.PreferenceSettings.DefaultPythonEngine)
+                {
+                    model.PreferenceSettings.DefaultPythonEngine = value;
+                    RaisePropertyChanged(nameof(DefaultPythonEngine));
+                }
+            }
+        }
+
         #endregion
 
         public struct StartConfiguration
@@ -516,22 +613,6 @@ namespace Dynamo.ViewModels
 
         protected DynamoViewModel(StartConfiguration startConfiguration)
         {
-
-            // This can be removed after this bug is fixed in .net 4.7
-            // https://developercommunity.visualstudio.com/content/problem/244615/setfinalsizemaxdiscrepancy-getting-stuck-in-an-inf.html
-            // if the key "Switch.System.Windows.Controls.Grid.StarDefinitionsCanExceedAvailableSpace" has a value true in the 
-            // dynamoCoreWpf.config file we will set the switch here before the view is created.
-            var path = this.GetType().Assembly.Location;
-            var config = ConfigurationManager.OpenExeConfiguration(path);
-            var gridSwitchKey = "Switch.System.Windows.Controls.Grid.StarDefinitionsCanExceedAvailableSpace";
-            var gridSwitchKeyValue = config.AppSettings.Settings[gridSwitchKey];
-            bool gridSwitch = false;
-            if(gridSwitchKeyValue != null)
-            {
-                bool.TryParse(gridSwitchKeyValue.Value, out gridSwitch);
-                AppContext.SetSwitch(gridSwitchKey, gridSwitch);
-            }
-
             this.ShowLogin = startConfiguration.ShowLogin;
 
             // initialize core data structures
@@ -708,12 +789,14 @@ namespace Dynamo.ViewModels
         {
             model.RequestBugReport += ReportABug;
             model.RequestDownloadDynamo += DownloadDynamo;
+            model.Preview3DOutage += Disable3DPreview;
         }
 
         private void UnsubscribeModelUiEvents()
         {
             model.RequestBugReport -= ReportABug;
             model.RequestDownloadDynamo -= DownloadDynamo;
+            model.Preview3DOutage -= Disable3DPreview;
         }
 
         private void SubscribeModelCleaningUpEvent()
@@ -802,6 +885,7 @@ namespace Dynamo.ViewModels
 
             // Reset workspace state
             CurrentSpaceViewModel.CancelActiveState();
+            BackgroundPreviewViewModel.RefreshState();
         }
 
         internal void ForceRunExprCmd(object parameters)
@@ -850,6 +934,14 @@ namespace Dynamo.ViewModels
         internal static void DownloadDynamo()
         {
             Process.Start(new ProcessStartInfo("explorer.exe", Configurations.DynamoDownloadLink));
+        }
+
+        private void Disable3DPreview()
+        {
+            foreach (var item in Watch3DViewModels)
+            {
+                item.Active = false;
+            }
         }
 
         internal bool CanReportABug(object parameter)
@@ -1790,9 +1882,15 @@ namespace Dynamo.ViewModels
 
         public void ToggleBackgroundGridVisibility(object parameter)
         {
-            if (BackgroundPreviewViewModel == null || !BackgroundPreviewViewModel.Active) return;
-
-            BackgroundPreviewViewModel.IsGridVisible = !BackgroundPreviewViewModel.IsGridVisible;
+            if (BackgroundPreviewViewModel != null)
+            {
+                // This will change both the live object property and the PreferenceSettings for persistence
+                BackgroundPreviewViewModel.IsGridVisible = !BackgroundPreviewViewModel.IsGridVisible;
+            }
+            else
+            {
+                PreferenceSettings.IsBackgroundGridVisible = !PreferenceSettings.IsBackgroundGridVisible;
+            }
         }
 
         internal bool CanToggleBackgroundGridVisibility(object parameter)
@@ -1826,7 +1924,10 @@ namespace Dynamo.ViewModels
 
         public void DoGraphAutoLayout(object parameter)
         {
-            this.CurrentSpaceViewModel.GraphAutoLayoutCommand.Execute(parameter);
+            if (CurrentSpaceViewModel.GraphAutoLayoutCommand.CanExecute(parameter))
+            {
+                CurrentSpaceViewModel.GraphAutoLayoutCommand.Execute(parameter);
+            }
         }
 
         internal bool CanDoGraphAutoLayout(object parameter)
@@ -1873,7 +1974,12 @@ namespace Dynamo.ViewModels
         public void MakeNewHomeWorkspace(object parameter)
         {
             if (ClearHomeWorkspaceInternal())
-                this.ShowStartPage = false; // Hide start page if there's one.
+            {
+                var t = new DelegateBasedAsyncTask(model.Scheduler, () => model.ResetEngine());
+                model.Scheduler.ScheduleForExecution(t);
+
+                ShowStartPage = false; // Hide start page if there's one.
+            }
         }
 
         internal bool CanMakeNewHomeWorkspace(object parameter)
@@ -2248,6 +2354,11 @@ namespace Dynamo.ViewModels
             ZoomInCommand.RaiseCanExecuteChanged();
         }
 
+        internal void OpenDocumentationLink(object parameter)
+        {
+            OnRequestOpenDocumentationLink((OpenDocumentationLinkEventArgs)parameter);
+        }
+
         private bool CanZoomIn(object parameter)
         {
             return CurrentSpaceViewModel.CanZoomIn;
@@ -2338,12 +2449,7 @@ namespace Dynamo.ViewModels
         public void Escape(object parameter)
         {
             CurrentSpaceViewModel.CancelActiveState();
-
-            // Since panning and orbiting modes are exclusive from one another,
-            // turning one on may turn the other off. This is the reason we must
-            // raise property change for both at the same time to update visual.
-            RaisePropertyChanged("IsPanning");
-            RaisePropertyChanged("IsOrbiting");
+            BackgroundPreviewViewModel.RefreshState();
         }
 
         internal bool CanEscape(object parameter)
@@ -2492,7 +2598,10 @@ namespace Dynamo.ViewModels
             // Request the View layer to close its window (see 
             // ShutdownParams.CloseDynamoView member for details).
             if (shutdownParams.CloseDynamoView)
+            {
                 OnRequestClose(this, EventArgs.Empty);
+            }
+
 
             BackgroundPreviewViewModel.Dispose();
 
@@ -2503,6 +2612,11 @@ namespace Dynamo.ViewModels
             }
 
             UsageReportingManager.DestroyInstance();
+            this.model.CommandStarting -= OnModelCommandStarting;
+            this.model.CommandCompleted -= OnModelCommandCompleted;
+            BackgroundPreviewViewModel.PropertyChanged -= Watch3DViewModelPropertyChanged;
+            WatchHandler.RequestSelectGeometry -= BackgroundPreviewViewModel.AddLabelForPath;
+            model.ComputeModelDeserialized -= model_ComputeModelDeserialized;
 
             return true;
         }

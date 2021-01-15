@@ -1513,8 +1513,15 @@ namespace ProtoCore.DSASM
                         // happens. 
                         if (graphNode.isLanguageBlock && currentLangBlock != Constants.kInvalidIndex)
                         {
-                            if (graphNode.languageBlockId == currentLangBlock
-                                || exe.CompleteCodeBlocks[currentLangBlock].IsMyAncestorBlock(graphNode.languageBlockId))
+                            if (graphNode.languageBlockId == currentLangBlock)
+                            {
+                                continue;
+                            }
+
+                            bool found = exe.CompleteCodeBlockDict.TryGetValue(currentLangBlock, out CodeBlock cb);
+                            Validity.Assert(found, $"Could not find code block with codeBlockId {currentLangBlock}");
+
+                            if (cb.IsMyAncestorBlock(graphNode.languageBlockId))
                             {
                                 continue;
                             }
@@ -2708,7 +2715,7 @@ namespace ProtoCore.DSASM
                     SymbolNode node = null;
                     bool isStatic = false;
                     ClassNode classNode = exe.classTable.ClassNodes[type];
-                    int symbolIndex = ClassUtils.GetSymbolIndex(classNode, procName, type, Constants.kGlobalScope, runtimeCore.RunningBlock, exe.CompleteCodeBlocks, out hasThisSymbol, out addressType);
+                    int symbolIndex = ClassUtils.GetSymbolIndex(classNode, procName, type, Constants.kGlobalScope, runtimeCore.RunningBlock, exe.CompleteCodeBlockDict, out hasThisSymbol, out addressType);
 
                     if (Constants.kInvalidIndex != symbolIndex)
                     {
@@ -2904,7 +2911,10 @@ namespace ProtoCore.DSASM
 
         public void ReturnSiteGC(int blockId, int classIndex, int functionIndex)
         {
-            foreach (CodeBlock cb in exe.CompleteCodeBlocks[blockId].children)
+            bool found = exe.CompleteCodeBlockDict.TryGetValue(blockId, out CodeBlock codeBlock);
+            Validity.Assert(found, $"Could find code block with codeBlockId {blockId}");
+
+            foreach (CodeBlock cb in codeBlock.children)
             {
                 if (cb.blockType == CodeBlockType.Construct)
                     GCCodeBlock(cb.codeBlockId, functionIndex, classIndex);
@@ -2927,6 +2937,10 @@ namespace ProtoCore.DSASM
             for (int n = 0; n < exe.instrStreamList.Length; ++n)
             {
                 InstructionStream stream = exe.instrStreamList[n];
+                if (stream == null)
+                {
+                    continue;
+                }
                 for (int i = 0; i < stream.dependencyGraph.GraphList.Count; ++i)
                 {
                     AssociativeGraph.GraphNode node = stream.dependencyGraph.GraphList[i];
@@ -3530,8 +3544,9 @@ namespace ProtoCore.DSASM
             // Need to optmize these if-elses to a table. 
             if (opdata1.IsInteger && opdata2.IsInteger)
             {
-                opdata2 = StackValue.BuildInt(opdata1.IntegerValue + opdata2.IntegerValue);
-
+                opdata2 = StackValue.BuildInt(HandleOverflow(
+                    () => checked(opdata1.IntegerValue + opdata2.IntegerValue),
+                    () => opdata1.IntegerValue + opdata2.IntegerValue));
             }
             else if (opdata1.IsNumeric && opdata2.IsNumeric)
             {
@@ -3563,7 +3578,28 @@ namespace ProtoCore.DSASM
             rmem.Push(opdata2);
             ++pc;
         }
-        
+
+        /// <summary>
+        /// Handles possible overflows from a checked operation. If it works, its result is
+        /// returned, otherwise the result of the unchecked operation is returned and a warning
+        /// is logged.
+        /// </summary>
+        /// <param name="checkedOperation">Checked operation to be attempted first</param>
+        /// <param name="uncheckedOperation">Unchecked operation to be perfomed when the checked operation overflowed</param>
+        /// <returns>The result of the first succesful operation</returns>
+        private long HandleOverflow(Func<long> checkedOperation, Func<long> uncheckedOperation)
+        {
+            try
+            {
+                return checkedOperation();
+            }
+            catch (OverflowException)
+            {
+                runtimeCore.RuntimeStatus.LogWarning(WarningID.IntegerOverflow, string.Format($"{Resources.IntegerOverflow}href=IntegerOverflow.html"));
+                return uncheckedOperation();
+            }
+        }
+
         private void SUB_Handler(Instruction instruction)
         {
             StackValue opdata1 = rmem.Pop();
@@ -3571,7 +3607,9 @@ namespace ProtoCore.DSASM
 
             if (opdata1.IsInteger && opdata2.IsInteger)
             {
-                opdata2 = StackValue.BuildInt(opdata2.IntegerValue - opdata1.IntegerValue);
+                opdata2 = StackValue.BuildInt(HandleOverflow(
+                    () => checked(opdata2.IntegerValue - opdata1.IntegerValue),
+                    () => opdata2.IntegerValue - opdata1.IntegerValue));
             }
             else if (opdata1.IsNumeric && opdata2.IsNumeric)
             {
@@ -3595,7 +3633,9 @@ namespace ProtoCore.DSASM
 
             if (opdata1.IsInteger && opdata2.IsInteger)
             {
-                opdata2 = StackValue.BuildInt(opdata1.IntegerValue * opdata2.IntegerValue);
+                opdata2 = StackValue.BuildInt(HandleOverflow(
+                    () => checked(opdata1.IntegerValue * opdata2.IntegerValue),
+                    () => opdata1.IntegerValue * opdata2.IntegerValue));
             }
             else if (opdata1.IsNumeric && opdata2.IsNumeric)
             {
@@ -3691,7 +3731,9 @@ namespace ProtoCore.DSASM
             StackValue opdata1 = rmem.Pop();
             if (opdata1.IsInteger)
             {
-                opdata1 = StackValue.BuildInt(-opdata1.IntegerValue);
+                opdata1 = StackValue.BuildInt(HandleOverflow(
+                    () => checked(-opdata1.IntegerValue),
+                    () => -opdata1.IntegerValue));
             }
             else if (opdata1.IsDouble)
             {
@@ -4381,7 +4423,9 @@ namespace ProtoCore.DSASM
             StackValue op1 = instruction.op1;
             int blockId = op1.BlockIndex;
 
-            CodeBlock codeBlock = exe.CompleteCodeBlocks[blockId];
+            bool found = exe.CompleteCodeBlockDict.TryGetValue(blockId, out CodeBlock codeBlock);
+            Validity.Assert(found, $"Could find code block with codeBlockId {blockId}");
+
             runtimeVerify(codeBlock.blockType == CodeBlockType.Construct);
             GCCodeBlock(blockId);
             pc++;

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Xml;
+using Autodesk.DesignScript.Runtime;
 using Dynamo.Configuration;
 using Dynamo.Engine;
 using Dynamo.Engine.CodeGeneration;
@@ -63,12 +64,14 @@ namespace Dynamo.Graph.Nodes
         private ObservableCollection<PortModel> inPorts = new ObservableCollection<PortModel>();
         private ObservableCollection<PortModel> outPorts = new ObservableCollection<PortModel>();
 
-        #endregion
-
-        #region public members
-
         private readonly Dictionary<int, Tuple<int, NodeModel>> inputNodes;
         private readonly Dictionary<int, HashSet<Tuple<int, NodeModel>>> outputNodes;
+
+        #endregion
+
+        internal const double HeaderHeight = 25;
+
+        #region public members
 
         /// <summary>
         /// The unique name that was created the node by
@@ -372,6 +375,7 @@ namespace Dynamo.Graph.Nodes
         public ObservableCollection<PortModel> InPorts
         {
             get { return inPorts; }
+            [IsObsolete("Property setter will be deprecated in Dynamo 3.0")]
             set
             {
                 inPorts = value;
@@ -386,6 +390,7 @@ namespace Dynamo.Graph.Nodes
         public ObservableCollection<PortModel> OutPorts
         {
             get { return outPorts; }
+            [IsObsolete("Property setter will be deprecated in Dynamo 3.0")]
             set
             {
                 outPorts = value;
@@ -1296,7 +1301,7 @@ namespace Dynamo.Graph.Nodes
                 // If any exception from BuildOutputAst(), we emit
                 // a function call "var_guid = %nodeAstFailed(full.node.name)"
                 // for this node, set the state of node to AstBuildBroken and
-                // disply the corresponding error message.
+                // display the corresponding error message.
                 //
                 // The return value of function %nodeAstFailed() is always
                 // null.
@@ -1914,6 +1919,7 @@ namespace Dynamo.Graph.Nodes
         ///     Creates a Scheme representation of this dynNode and all connected dynNodes.
         /// </summary>
         /// <returns>S-Expression</returns>
+        [Obsolete("PrintExpression is deprecated and will be removed, please refer to the Node2Code functionality instead for conversion to DesignScript code.")]
         public virtual string PrintExpression()
         {
             string nick = Name.Replace(' ', '_');
@@ -2090,6 +2096,30 @@ namespace Dynamo.Graph.Nodes
                         }
                     }
                     return true;
+
+                case nameof(DisplayLabels):
+                    bool newDisplayLabels;
+                    if (bool.TryParse(value, out newDisplayLabels))
+                    {
+                        DisplayLabels = newDisplayLabels;
+                    }
+                    return true;
+
+                case nameof(IsSetAsInput):
+                    bool newIsSetAsInput;
+                    if (bool.TryParse(value, out newIsSetAsInput))
+                    {
+                        IsSetAsInput = newIsSetAsInput;
+                    }
+                    return true;
+
+                case nameof(IsSetAsOutput):
+                    bool newIsSetAsOutput;
+                    if (bool.TryParse(value, out newIsSetAsOutput))
+                    {
+                        IsSetAsOutput = newIsSetAsOutput;
+                    }
+                    return true;
             }
 
             return base.UpdateValueCore(updateValueParams);
@@ -2139,6 +2169,7 @@ namespace Dynamo.Graph.Nodes
             helper.SetAttribute("x", X);
             helper.SetAttribute("y", Y);
             helper.SetAttribute("isVisible", IsVisible);
+            helper.SetAttribute(nameof(DisplayLabels), DisplayLabels);
             helper.SetAttribute("lacing", ArgumentLacing.ToString());
             helper.SetAttribute("isSelectedInput", IsSetAsInput.ToString());
             helper.SetAttribute("isSelectedOutput", IsSetAsOutput.ToString());
@@ -2197,6 +2228,7 @@ namespace Dynamo.Graph.Nodes
             X = helper.ReadDouble("x", 0.0);
             Y = helper.ReadDouble("y", 0.0);
             isVisible = helper.ReadBoolean("isVisible", true);
+            displayLabels = helper.ReadBoolean(nameof(DisplayLabels), false);
             argumentLacing = helper.ReadEnum("lacing", LacingStrategy.Disabled);
             IsSetAsInput = helper.ReadBoolean("isSelectedInput", false);
             IsSetAsOutput = helper.ReadBoolean("isSelectedOutput", false);
@@ -2267,15 +2299,17 @@ namespace Dynamo.Graph.Nodes
                 // in different ways and their views will always be up-to-date with
                 // respect to their models.
                 RaisePropertyChanged("InteractionEnabled");
-                RaisePropertyChanged("State");
-                RaisePropertyChanged("Name");
-                RaisePropertyChanged("ArgumentLacing");
-                RaisePropertyChanged("IsVisible");
-                 
+                RaisePropertyChanged(nameof(State));
+                RaisePropertyChanged(nameof(Name));
+                RaisePropertyChanged(nameof(ArgumentLacing));
+                RaisePropertyChanged(nameof(IsVisible));
+                RaisePropertyChanged(nameof(DisplayLabels));
+                RaisePropertyChanged(nameof(IsSetAsInput));
+                RaisePropertyChanged(nameof(IsSetAsOutput));
                 //we need to modify the downstream nodes manually in case the
                 //undo is for toggling freeze. This is ONLY modifying the execution hint.
                 // this does not run the graph.
-                RaisePropertyChanged("IsFrozen");
+                RaisePropertyChanged(nameof(IsFrozen));
                 MarkDownStreamNodesAsModified(this);
 
                 // Notify listeners that the position of the node has changed,
@@ -2344,15 +2378,6 @@ namespace Dynamo.Graph.Nodes
         ///
         internal void RequestValueUpdate(EngineController engine)
         {
-            // A NodeModel should have its cachedMirrorData reset when it is
-            // requested to update its value. When the QueryMirrorDataAsyncTask
-            // returns, it will update cachedMirrorData with the latest value.
-            //
-            lock (cachedValueMutex)
-            {
-                cachedValue = null;
-            }
-
             // Do not have an identifier for preview right now. For an example,
             // this can be happening at the beginning of a code block node creation.
             var variableName = AstIdentifierForPreview.Value;
@@ -2360,10 +2385,7 @@ namespace Dynamo.Graph.Nodes
                 return;
 
             var runtimeMirror = engine.GetMirror(variableName);
-            if (runtimeMirror != null)
-            {
-                CachedValue = runtimeMirror.GetData();
-            }
+            CachedValue = runtimeMirror?.GetData();
         }
 
         /// <summary>

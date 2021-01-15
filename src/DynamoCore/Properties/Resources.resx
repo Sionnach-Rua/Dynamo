@@ -163,7 +163,7 @@
     <value>Composed function: g(f(x))</value>
   </data>
   <data name="RangePortDataAmountToolTip" xml:space="preserve">
-    <value>Amount of numbers in the sequence
+    <value>Amount of numbers or letters in the sequence
 Default value: 10</value>
   </data>
   <data name="RangePortDataEndToolTip" xml:space="preserve">
@@ -171,7 +171,7 @@ Default value: 10</value>
 Default value: 9</value>
   </data>
   <data name="RangePortDataSeqToolTip" xml:space="preserve">
-    <value>New sequence</value>
+    <value>New list of type: var[]..[]</value>
   </data>
   <data name="RangePortDataStartToolTip" xml:space="preserve">
     <value>Number or letter to start the sequence at
@@ -262,7 +262,7 @@ If you don't mind, it would be helpful for you to send us your file. That will m
     <value>Uh oh...
  We're sorry - we tried to save your decisions, but something went wrong. The decision probably hasn't been saved. This really shouldn't have happened. Please get in touch via GitHub and send us this information.
 You can also try deleting [FILEPATH] and trying again.
-Depending on your previous choice, instrumentation may still be running, if you're worried about this, please consider not using Dynamo until we've got back to you to solve the problem.
+Depending on your previous choice, analytics may still be running, if you're worried about this, please consider not using Dynamo until we've got back to you to solve the problem.
 Sorry about that.</value>
   </data>
   <data name="CouldNotLoadTypes" xml:space="preserve">
@@ -531,7 +531,7 @@ input : var[]..[]
 value : bool = false</value>
   </data>
   <data name="CustomNodeNotLoaded" xml:space="preserve">
-    <value>Custom node definition is not loaded!</value>
+    <value>Custom node definition is not loaded! href=CustomNodeNotLoaded.html</value>
   </data>
   <data name="RunTypeToolTipAutomatically" xml:space="preserve">
     <value>Run whenever an input to the graph is updated.</value>
@@ -588,7 +588,7 @@ value : bool = false</value>
     <value>Incorrectly formatted package node library encountered, this may result in a package assembly not being loaded!</value>
   </data>
   <data name="NothingIsSelectedWarning" xml:space="preserve">
-    <value>Nothing is selected.</value>
+    <value>Nothing is selected. href=NothingIsSelectedWarning.html</value>
   </data>
   <data name="SearchTextBlockText" xml:space="preserve">
     <value>Search</value>
@@ -708,5 +708,31 @@ Restart Dynamo to complete the uninstall.</value>
   </data>
   <data name="FunctionDefinitionOverwrittenMessage" xml:space="preserve">
     <value>Attempting to load customNode {0} loaded by package {1}, but a previous definition named {2} exists with no associated package. The new customNode definition has been loaded, but Dynamo may be in an unstable state, please avoid loading multiple custom nodes with the id.</value>
+  </data>
+  <data name="Preview3DOutageTitle" xml:space="preserve">
+    <value>3D preview has been deactivated</value>
+  </data>
+  <data name="MissingXmlTagConsoleMessage" xml:space="preserve">
+    <value>{0} is missing some XML documentation tags.</value>
+  </data>
+  <data name="FailedToHandleReadyEvent" xml:space="preserve">
+    <value>Failed to call Ready() in extension: </value>
+  </data>
+  <data name="DuplicatedModelGuidError" xml:space="preserve">
+    <value>The map already contains a model with this id, the id must be unique for the workspace that is currently being deserialized: {0}</value>
+  </data>
+  <data name="ArgumentNullException" xml:space="preserve">
+    <value>Value cannot be null.
+Parameter name: {0}</value>
+  </data>
+  <data name="ModelNotFoundError" xml:space="preserve">
+    <value>UpdateModelValue: Model not found</value>
+  </data>
+  <data name="PackageManagerPackageAlreadyExists" xml:space="preserve">
+    <value>A package with the given name already exists.</value>
+  </data>
+  <data name="PackageManagerUserIsNotAMaintainer" xml:space="preserve">
+    <value>The current user, '{0}', is not a maintainer of the package '{1}'.</value>
+    <comment>{0} = user name (i.e. 'DynamoTeam'), {1} = package name (i.e. 'Clockwork for Dynamo 1.x')</comment>
   </data>
 </root>

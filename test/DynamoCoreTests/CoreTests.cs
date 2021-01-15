@@ -16,6 +16,7 @@ using Dynamo.Graph.Notes;
 using Dynamo.Graph.Workspaces;
 using Dynamo.Models;
 using Dynamo.Selection;
+using Dynamo.Tests.Loggings;
 using NUnit.Framework;
 using DynCmd = Dynamo.Models.DynamoModel;
 
@@ -235,10 +236,17 @@ namespace Dynamo.Tests
         [Category("UnitTests")]
         public void CanClearLog()
         {
-            Assert.AreNotEqual(0, CurrentDynamoModel.Logger.LogText.Length);
+            // Get the dynamo logger in non-test mode, as we write the logs
+            // to dynamo console and to a file only in non-test mode. 
 
-            CurrentDynamoModel.Logger.ClearLog();
-            Assert.AreEqual(0, CurrentDynamoModel.Logger.LogText.Length);
+            DynamoLoggerTest dynamoLoggerTest = new DynamoLoggerTest();
+            var logger = dynamoLoggerTest.GetDynamoLoggerWithTestModeFalse();
+
+            Assert.AreNotEqual(0, logger.LogText.Length);
+
+            logger.ClearLog();
+
+            Assert.AreEqual(0, logger.LogText.Length);
         }
 
         // Clearworkspace
@@ -380,7 +388,112 @@ namespace Dynamo.Tests
 
         [Test]
         [Category("UnitTests")]
-        public void CanCopydAndPasteNodeWithRightOffset()
+        public void CanCopyAndPasteAndUndoShowLabels()
+        {
+            var addNode = new DSFunction(CurrentDynamoModel.LibraryServices.GetFunctionDescriptor("+"));
+         
+            CurrentDynamoModel.CurrentWorkspace.AddAndRegisterNode(addNode, false);
+            Assert.AreEqual(1, CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
+
+            addNode.DisplayLabels = true;
+            CurrentDynamoModel.AddToSelection(addNode);
+            Assert.AreEqual(1, DynamoSelection.Instance.Selection.Count);
+
+            CurrentDynamoModel.Copy();
+            Assert.AreEqual(1, CurrentDynamoModel.ClipBoard.Count);
+
+            CurrentDynamoModel.Paste();
+            Assert.AreEqual(2, CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
+
+            Assert.IsTrue(CurrentDynamoModel.CurrentWorkspace.Nodes.All(x => x.DisplayLabels));
+
+            CurrentDynamoModel.CurrentWorkspace.Undo();
+            Assert.AreEqual(1, CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
+            addNode.DisplayLabels = false;
+
+            CurrentDynamoModel.ExecuteCommand(
+                 new DynCmd.UpdateModelValueCommand(
+                     Guid.Empty, addNode.GUID, nameof(NodeModel.DisplayLabels), "true"));
+           Assert.IsTrue(addNode.DisplayLabels);
+
+            CurrentDynamoModel.CurrentWorkspace.Undo();
+
+            Assert.IsFalse(addNode.DisplayLabels);
+        }
+
+        [Test]
+        [Category("UnitTests")]
+        public void CanCopyAndPasteAndUndoInputState()
+        {
+            var numberNode = new DoubleInput();
+
+            CurrentDynamoModel.CurrentWorkspace.AddAndRegisterNode(numberNode, false);
+            Assert.AreEqual(1, CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
+
+            numberNode.IsSetAsInput = true;
+            CurrentDynamoModel.AddToSelection(numberNode);
+            Assert.AreEqual(1, DynamoSelection.Instance.Selection.Count);
+
+            CurrentDynamoModel.Copy();
+            Assert.AreEqual(1, CurrentDynamoModel.ClipBoard.Count);
+
+            CurrentDynamoModel.Paste();
+            Assert.AreEqual(2, CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
+
+            Assert.IsTrue(CurrentDynamoModel.CurrentWorkspace.Nodes.All(x => x.IsSetAsInput));
+
+            CurrentDynamoModel.CurrentWorkspace.Undo();
+            Assert.AreEqual(1, CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
+            numberNode.IsSetAsInput = false;
+
+            CurrentDynamoModel.ExecuteCommand(
+                 new DynCmd.UpdateModelValueCommand(
+                     Guid.Empty, numberNode.GUID, nameof(NodeModel.IsSetAsInput), "true"));
+            Assert.IsTrue(numberNode.IsSetAsInput);
+
+            CurrentDynamoModel.CurrentWorkspace.Undo();
+
+            Assert.IsFalse(numberNode.IsSetAsInput);
+        }
+
+        [Test]
+        [Category("UnitTests")]
+        public void CanCopyAndPasteAndUndoOutputState()
+        {
+            var addNode = new DSFunction(CurrentDynamoModel.LibraryServices.GetFunctionDescriptor("+"));
+
+            CurrentDynamoModel.CurrentWorkspace.AddAndRegisterNode(addNode, false);
+            Assert.AreEqual(1, CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
+
+            addNode.IsSetAsOutput = true;
+            CurrentDynamoModel.AddToSelection(addNode);
+            Assert.AreEqual(1, DynamoSelection.Instance.Selection.Count);
+
+            CurrentDynamoModel.Copy();
+            Assert.AreEqual(1, CurrentDynamoModel.ClipBoard.Count);
+
+            CurrentDynamoModel.Paste();
+            Assert.AreEqual(2, CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
+
+            Assert.IsTrue(CurrentDynamoModel.CurrentWorkspace.Nodes.All(x => x.IsSetAsOutput));
+
+            CurrentDynamoModel.CurrentWorkspace.Undo();
+            Assert.AreEqual(1, CurrentDynamoModel.CurrentWorkspace.Nodes.Count());
+            addNode.IsSetAsOutput = false;
+
+            CurrentDynamoModel.ExecuteCommand(
+                 new DynCmd.UpdateModelValueCommand(
+                     Guid.Empty, addNode.GUID, nameof(NodeModel.IsSetAsOutput), "true"));
+            Assert.IsTrue(addNode.IsSetAsOutput);
+
+            CurrentDynamoModel.CurrentWorkspace.Undo();
+
+            Assert.IsFalse(addNode.IsSetAsOutput);
+        }
+
+        [Test]
+        [Category("UnitTests")]
+        public void CanCopyAndPasteNodeWithRightOffset()
         {
             var addNode = new DSFunction(CurrentDynamoModel.LibraryServices.GetFunctionDescriptor("+"));
             addNode.Height = 2;
@@ -406,7 +519,7 @@ namespace Dynamo.Tests
 
         [Test]
         [Category("UnitTests")]
-        public void CanCopydAndPaste2NodesWithRightOffset()
+        public void CanCopyAndPaste2NodesWithRightOffset()
         {
             var addNode = new DSFunction(CurrentDynamoModel.LibraryServices.GetFunctionDescriptor("+"));
             addNode.Height = 2;
@@ -1022,6 +1135,29 @@ namespace Dynamo.Tests
             this.CurrentDynamoModel.CurrentWorkspace.UpdateWithExtraWorkspaceViewInfo(mockViewBlock);
             Assert.AreEqual(1, this.CurrentDynamoModel.CurrentWorkspace.Annotations.Count());
             Assert.AreEqual(1, this.CurrentDynamoModel.CurrentWorkspace.Notes.Count());
+        }
+
+        [Test]
+        public void CannotRemoveDefaultDSVarArgFunctionPorts()
+        {
+            // Arrange
+            string openPath = Path.Combine(TestDirectory, @"core\dsfunction\StringSplit.dyn");
+            OpenModel(openPath);
+            var nodeGuid = Guid.Parse("c969eca6005a4273aee4ed8ddd73f3ab");
+            var node = CurrentDynamoModel.CurrentWorkspace.NodeFromWorkspace<DSVarArgFunction>(nodeGuid);
+            int portCountBefore = node.InPorts.Count;
+
+            // Act
+            CurrentDynamoModel.ExecuteCommand(new DynCmd.ModelEventCommand(nodeGuid, "AddInPort", 1));
+            int portCountAfterAdd = node.InPorts.Count;
+            CurrentDynamoModel.ExecuteCommand(new DynCmd.ModelEventCommand(nodeGuid, "RemoveInPort", 1));
+            CurrentDynamoModel.ExecuteCommand(new DynCmd.ModelEventCommand(nodeGuid, "RemoveInPort", 1));
+            int portCountAfterRemove = node.InPorts.Count;
+
+            // Assert
+            Assert.AreEqual(2, portCountBefore);
+            Assert.AreEqual(3, portCountAfterAdd);
+            Assert.AreEqual(2, portCountAfterRemove);
         }
     }
 }

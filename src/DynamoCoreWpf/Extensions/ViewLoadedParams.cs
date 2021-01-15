@@ -98,9 +98,9 @@ namespace Dynamo.Wpf.Extensions
         /// <returns></returns>
         public void AddToExtensionsSideBar(IViewExtension viewExtension, ContentControl contentControl)
         {
-            TabItem tabItem  = dynamoView.AddExtensionTabItem(viewExtension, contentControl);
+            bool added  = dynamoView.AddOrFocusExtensionControl(viewExtension, contentControl);
 
-            if (tabItem != null)
+            if (added)
             {
                 dynamoViewModel.Model.Logger.Log(Wpf.Properties.Resources.ExtensionAdded);
             }
@@ -117,7 +117,7 @@ namespace Dynamo.Wpf.Extensions
         /// <returns></returns>
         public void CloseExtensioninInSideBar(IViewExtension viewExtension)
         {
-            dynamoView.CloseExtensionTabItem(viewExtension);
+            dynamoView.CloseExtensionControl(viewExtension);
         }
 
         public void AddSeparator(MenuBarType type, Separator separatorObj, int index = -1)
@@ -173,6 +173,24 @@ namespace Dynamo.Wpf.Extensions
         {
             var dynamoMenuItems = dynamoMenu.Items.OfType<MenuItem>();
             return dynamoMenuItems.First(item => item.Header.ToString() == type.ToDisplayString());
+        }
+
+        /// <summary>
+        /// Event raised when a component inside Dynamo raises an error with a documentation link or directly requests a documentation link to be opened.
+        /// Extensions should subscribe to this event to be able to handle RequestOpenDocumentationLink events from Dynamo.
+        /// </summary>
+        public event RequestOpenDocumentationLinkHandler RequestOpenDocumentationLink
+        {
+            // we provide a transparent passthrough to underlying event
+            // so that the ViewLoadedParams class itself doesn't appear as a subscriber to the event
+            add
+            {
+                this.dynamoViewModel.RequestOpenDocumentationLink += value;
+            }
+            remove
+            {
+                this.dynamoViewModel.RequestOpenDocumentationLink -= value;
+            }
         }
 
     }

@@ -158,9 +158,14 @@ namespace Dynamo.ViewModels
         private void OnRequestShowInCanvasSearch(object param)
         {
             var flag = (ShowHideFlags)param;
+            RequestShowInCanvasSearch?.Invoke(flag);
+        }
 
-            if (RequestShowInCanvasSearch != null)
-                RequestShowInCanvasSearch(flag);
+        internal event Action<ShowHideFlags> RequestNodeAutoCompleteSearch;
+
+        internal void OnRequestNodeAutoCompleteSearch(ShowHideFlags flag)
+        {
+            RequestNodeAutoCompleteSearch?.Invoke(flag);
         }
 
         #endregion
@@ -221,13 +226,19 @@ namespace Dynamo.ViewModels
         /// of Graph.Json.
         /// </summary>
         [JsonProperty("Camera")]
-        public CameraData Camera => DynamoViewModel.BackgroundPreviewViewModel.GetCameraInformation() ?? new CameraData();
+        public CameraData Camera => DynamoViewModel.BackgroundPreviewViewModel?.GetCameraInformation() ?? new CameraData();
 
         /// <summary>
         /// ViewModel that is used in InCanvasSearch in context menu and called by Shift+DoubleClick.
         /// </summary>
         [JsonIgnore]
         public SearchViewModel InCanvasSearchViewModel { get; private set; }
+
+        /// <summary>
+        /// ViewModel that is used in NodeAutoComplete feature in context menu and called by Shift+DoubleClick.
+        /// </summary>
+        [JsonIgnore]
+        public NodeAutoCompleteSearchViewModel NodeAutoCompleteSearchViewModel { get; private set; }
 
         /// <summary>
         /// Cursor Property Binding for WorkspaceView
@@ -456,8 +467,14 @@ namespace Dynamo.ViewModels
             foreach (AnnotationModel annotation in Model.Annotations) Model_AnnotationAdded(annotation);
             foreach (ConnectorModel connector in Model.Connectors) Connectors_ConnectorAdded(connector);
 
-            InCanvasSearchViewModel = new SearchViewModel(DynamoViewModel);
-            InCanvasSearchViewModel.Visible = true;
+            InCanvasSearchViewModel = new SearchViewModel(DynamoViewModel)
+            {
+                Visible = true
+            };
+            NodeAutoCompleteSearchViewModel = new NodeAutoCompleteSearchViewModel(DynamoViewModel)
+            {
+                Visible = true
+            };
         }
         /// <summary>
         /// This event is triggered from Workspace Model. Used in instrumentation
@@ -503,7 +520,9 @@ namespace Dynamo.ViewModels
             Nodes.Clear();
             Notes.Clear();
             Connectors.Clear();
+            Errors.Clear();
             InCanvasSearchViewModel.Dispose();
+            NodeAutoCompleteSearchViewModel.Dispose();
         }
 
         internal void ZoomInInternal()
@@ -665,12 +684,15 @@ namespace Dynamo.ViewModels
 
         void Model_NodesCleared()
         {
-            foreach(var nodeViewModel in Nodes)
+            lock (Nodes)
             {
-                this.unsubscribeNodeEvents(nodeViewModel);
-                nodeViewModel.Dispose();
+                foreach (var nodeViewModel in Nodes)
+                {
+                    this.unsubscribeNodeEvents(nodeViewModel);
+                    nodeViewModel.Dispose();
+                }
+                Nodes.Clear();
             }
-            Nodes.Clear();
             Errors.Clear();
 
             PostNodeChangeActions();
@@ -684,9 +706,13 @@ namespace Dynamo.ViewModels
 
         void Model_NodeRemoved(NodeModel node)
         {
-            NodeViewModel nodeViewModel = Nodes.First(x => x.NodeLogic == node);
-            Errors.Remove(nodeViewModel.ErrorBubble);
-            Nodes.Remove(nodeViewModel);
+            NodeViewModel nodeViewModel;
+            lock (Nodes)
+            {
+                nodeViewModel = Nodes.First(x => x.NodeLogic == node);
+                Errors.Remove(nodeViewModel.ErrorBubble);
+                Nodes.Remove(nodeViewModel);
+            }
             //unsub the events we attached below in NodeAdded.
             this.unsubscribeNodeEvents(nodeViewModel);
             nodeViewModel.Dispose();
@@ -699,7 +725,10 @@ namespace Dynamo.ViewModels
             var nodeViewModel = new NodeViewModel(this, node);
             nodeViewModel.SnapInputEvent += nodeViewModel_SnapInputEvent;
             nodeViewModel.NodeLogic.Modified += OnNodeModified;
-            Nodes.Add(nodeViewModel);
+            lock (Nodes)
+            {
+                Nodes.Add(nodeViewModel);
+            }
             Errors.Add(nodeViewModel.ErrorBubble);
             nodeViewModel.UpdateBubbleContent();
 
@@ -1097,8 +1126,10 @@ namespace Dynamo.ViewModels
 
         private void SetArgumentLacing(object parameter)
         {
-            var modelGuids = DynamoSelection.Instance.Selection.
-                OfType<NodeModel>().Select(n => n.GUID);
+            var modelGuids = DynamoSelection.Instance.Selection
+                .OfType<NodeModel>()
+                .Where(n => n.ArgumentLacing != LacingStrategy.Disabled)
+                .Select(n => n.GUID);
 
             if (!modelGuids.Any())
                 return;
@@ -1371,6 +1402,7 @@ namespace Dynamo.ViewModels
             RaisePropertyChanged("AnyNodeVisible");
             RaisePropertyChanged("SelectionArgumentLacing");            
         }
+
     }
 
     public class ViewModelEventArgs : EventArgs

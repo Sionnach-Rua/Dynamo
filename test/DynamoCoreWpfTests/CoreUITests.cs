@@ -502,7 +502,7 @@ namespace DynamoCoreWpfTests
 
         [Test]
         [Category("DynamoUI")]
-        public void PreferenceSetting_AgreeAnalyticSharing()
+        public void PreferenceSetting_NotAgreeAnalyticsSharing()
         {
             // Test deserialization of analytics setting 
             // Test loading old settings file without agreement 
@@ -515,13 +515,13 @@ namespace DynamoCoreWpfTests
 
         [Test]
         [Category("DynamoUI")]
-        public void PreferenceSetting_NotAgreeAnalyticsSharing()
+        public void PreferenceSetting_AgreeAnalyticsSharing()
         {
-            // Test loading old settings file without render precision attribute
+            // Test loading old settings file with agreement 
             var filePath = Path.Combine(GetTestDirectory(ExecutingDirectory), @"settings\DynamoSettings-AnalyticsTurnedOn.xml");
             var resultSetting = PreferenceSettings.Load(filePath);
             Assert.AreEqual(true, resultSetting.IsAnalyticsReportingApproved);
-            Assert.AreEqual(true, resultSetting.IsUsageReportingApproved);
+            Assert.AreEqual(false, resultSetting.IsUsageReportingApproved);
             Assert.DoesNotThrow(() => Dynamo.Logging.AnalyticsService.ShutDown());
         }
 
@@ -701,7 +701,6 @@ namespace DynamoCoreWpfTests
 
             //create the view
             View = new DynamoView(ViewModel);
-
             SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
         }
         #endregion
@@ -723,6 +722,7 @@ namespace DynamoCoreWpfTests
                 Assert.AreEqual(content, infoBubble.Content);
                 Assert.AreEqual(InfoBubbleViewModel.Style.Error, infoBubble.InfoBubbleStyle);
                 Assert.AreEqual(InfoBubbleViewModel.Direction.Bottom, infoBubble.ConnectingDirection);
+                Assert.IsNull(infoBubble.DocumentationLink);
             }
         }
 

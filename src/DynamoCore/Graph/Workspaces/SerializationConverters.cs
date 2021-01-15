@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using Dynamo.Configuration;
@@ -15,6 +16,7 @@ using Dynamo.Graph.Notes;
 using Dynamo.Graph.Presets;
 using Dynamo.Library;
 using Dynamo.Logging;
+using Dynamo.Properties;
 using Dynamo.Scheduler;
 using Dynamo.Utilities;
 using Newtonsoft.Json;
@@ -184,6 +186,8 @@ namespace Dynamo.Graph.Workspaces
 
                 CustomNodeDefinition def = null;
                 CustomNodeInfo info = null;
+                // Skip deserializing the Description Json property as the original one in dyf may 
+                // already be updated without syncing with the dyn
                 bool isUnresolved = !manager.TryGetCustomNodeData(functionId, null, false, out def, out info);
                 Function function = manager.CreateCustomNodeInstance(functionId, null, false, def, info);
                 node = function;
@@ -226,15 +230,8 @@ namespace Dynamo.Graph.Workspaces
             else if (typeof(DSFunctionBase).IsAssignableFrom(type))
             {
                 var mangledName = obj["FunctionSignature"].Value<string>();
-                var priorNames = libraryServices.GetPriorNames();
-                var functionDescriptor = libraryServices.GetFunctionDescriptor(mangledName);
-                string newName;
-
-                // Update the function descriptor if a newer migrated version of the node exists
-                if (priorNames.TryGetValue(mangledName, out newName))
-                {
-                    functionDescriptor = libraryServices.GetFunctionDescriptor(newName);
-                }
+                var lookupSignature = libraryServices.GetFunctionSignatureFromFunctionSignatureHint(mangledName) ?? mangledName;
+                var functionDescriptor = libraryServices.GetFunctionDescriptor(lookupSignature);
 
                 // Use the functionDescriptor to try and restore the proper node if possible
                 if (functionDescriptor == null)
@@ -1074,9 +1071,9 @@ namespace Dynamo.Graph.Workspaces
             Guid deterministicGuid;
             if (!Guid.TryParse(obj.Value<string>(), out deterministicGuid))
             {
-                Console.WriteLine("the id was not a guid, converting to a guid");
+                Debug.WriteLine("the id was not a guid, converting to a guid");
                 deterministicGuid = GuidUtility.Create(GuidUtility.UrlNamespace, obj.Value<string>());
-                Console.WriteLine(obj + " becomes " + deterministicGuid);
+                Debug.WriteLine(obj + " becomes " + deterministicGuid);
             }
             return deterministicGuid;
         }
@@ -1138,8 +1135,7 @@ namespace Dynamo.Graph.Workspaces
         {
             if (modelMap.ContainsKey(oldId))
             {
-                throw new InvalidOperationException(@"the map already contains a model with this id, the id must
-                    be unique for the workspace that is currently being deserialized: "+oldId);
+                throw new InvalidOperationException(string.Format(Resources.DuplicatedModelGuidError, oldId));
             }
             modelMap.Add(oldId, newObject);
         }
@@ -1149,8 +1145,7 @@ namespace Dynamo.Graph.Workspaces
             Guid id = new Guid(reference);
             if (models.ContainsKey(id))
             {
-                throw new InvalidOperationException(@"the map already contains a model with this id, the id must
-                    be unique for the workspace that is currently being deserialized :"+id);
+                throw new InvalidOperationException(string.Format(Resources.DuplicatedModelGuidError, id));
             }
             models[id] = value;
         }
@@ -1189,7 +1184,7 @@ namespace Dynamo.Graph.Workspaces
             if (!Guid.TryParse(reference, out id))
             {
                 // If this is not a guid, it won't be in the resolver.
-                Console.WriteLine("not a guid");
+                Debug.WriteLine("not a guid");
                 return null;
             }
             object model;
@@ -1211,7 +1206,7 @@ namespace Dynamo.Graph.Workspaces
             if (!Guid.TryParse(reference, out id))
             {
                 // If this is not a guid, it won't be in the resolver.
-                Console.WriteLine("not a guid");
+                Debug.WriteLine("not a guid");
                 return null;
             }
             object model;

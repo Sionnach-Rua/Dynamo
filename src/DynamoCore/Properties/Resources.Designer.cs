@@ -19,7 +19,7 @@ namespace Dynamo.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resources {
@@ -66,6 +66,16 @@ namespace Dynamo.Properties {
         public static string ArggOKButton {
             get {
                 return ResourceManager.GetString("ArggOKButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value cannot be null.
+        ///Parameter name: {0}.
+        /// </summary>
+        public static string ArgumentNullException {
+            get {
+                return ResourceManager.GetString("ArgumentNullException", resourceCulture);
             }
         }
         
@@ -313,7 +323,7 @@ namespace Dynamo.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Custom node definition is not loaded!.
+        ///   Looks up a localized string similar to Custom node definition is not loaded! href=CustomNodeNotLoaded.html.
         /// </summary>
         public static string CustomNodeNotLoaded {
             get {
@@ -432,6 +442,15 @@ namespace Dynamo.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The map already contains a model with this id, the id must be unique for the workspace that is currently being deserialized: {0}.
+        /// </summary>
+        public static string DuplicatedModelGuidError {
+            get {
+                return ResourceManager.GetString("DuplicatedModelGuidError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Duplicate migration type registered for {0}.
         /// </summary>
         public static string DuplicateMigrationTypeRegistered {
@@ -482,6 +501,15 @@ namespace Dynamo.Properties {
         public static string FailedToGetMirrorVariable {
             get {
                 return ResourceManager.GetString("FailedToGetMirrorVariable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to call Ready() in extension: .
+        /// </summary>
+        public static string FailedToHandleReadyEvent {
+            get {
+                return ResourceManager.GetString("FailedToHandleReadyEvent", resourceCulture);
             }
         }
         
@@ -893,6 +921,24 @@ namespace Dynamo.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} is missing some XML documentation tags..
+        /// </summary>
+        public static string MissingXmlTagConsoleMessage {
+            get {
+                return ResourceManager.GetString("MissingXmlTagConsoleMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to UpdateModelValue: Model not found.
+        /// </summary>
+        public static string ModelNotFoundError {
+            get {
+                return ResourceManager.GetString("ModelNotFoundError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to SHOW MORE ({0}).
         /// </summary>
         public static string MoreButtonTextFormat {
@@ -965,7 +1011,7 @@ namespace Dynamo.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Nothing is selected..
+        ///   Looks up a localized string similar to Nothing is selected. href=NothingIsSelectedWarning.html.
         /// </summary>
         public static string NothingIsSelectedWarning {
             get {
@@ -1060,6 +1106,24 @@ namespace Dynamo.Properties {
         public static string PackageEmpty {
             get {
                 return ResourceManager.GetString("PackageEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A package with the given name already exists..
+        /// </summary>
+        public static string PackageManagerPackageAlreadyExists {
+            get {
+                return ResourceManager.GetString("PackageManagerPackageAlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The current user, &apos;{0}&apos;, is not a maintainer of the package &apos;{1}&apos;..
+        /// </summary>
+        public static string PackageManagerUserIsNotAMaintainer {
+            get {
+                return ResourceManager.GetString("PackageManagerUserIsNotAMaintainer", resourceCulture);
             }
         }
         
@@ -1163,6 +1227,15 @@ namespace Dynamo.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to 3D preview has been deactivated.
+        /// </summary>
+        public static string Preview3DOutageTitle {
+            get {
+                return ResourceManager.GetString("Preview3DOutageTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Proceed anyway.
         /// </summary>
         public static string ProceedButton {
@@ -1226,7 +1299,7 @@ namespace Dynamo.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Amount of numbers in the sequence
+        ///   Looks up a localized string similar to Amount of numbers or letters in the sequence
         ///Default value: 10.
         /// </summary>
         public static string RangePortDataAmountToolTip {
@@ -1246,7 +1319,7 @@ namespace Dynamo.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to New sequence.
+        ///   Looks up a localized string similar to New list of type: var[]..[].
         /// </summary>
         public static string RangePortDataSeqToolTip {
             get {
@@ -1634,7 +1707,7 @@ namespace Dynamo.Properties {
         ///   Looks up a localized string similar to Uh oh...
         /// We&apos;re sorry - we tried to save your decisions, but something went wrong. The decision probably hasn&apos;t been saved. This really shouldn&apos;t have happened. Please get in touch via GitHub and send us this information.
         ///You can also try deleting [FILEPATH] and trying again.
-        ///Depending on your previous choice, instrumentation may still be running, if you&apos;re worried about this, please consider not using Dynamo until we&apos;ve got back to you to solve the problem.
+        ///Depending on your previous choice, analytics may still be running, if you&apos;re worried about this, please consider not using Dynamo until we&apos;ve got back to you to solve the problem.
         ///Sorry about that..
         /// </summary>
         public static string UsageReportingErrorMessage {

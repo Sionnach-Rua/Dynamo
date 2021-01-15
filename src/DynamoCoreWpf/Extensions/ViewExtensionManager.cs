@@ -94,6 +94,12 @@ namespace Dynamo.Wpf.Extensions
             {
                 viewExtensions.Add(extension);
                 Log(fullName + " view extension is added");
+                // Inform view extension author and consumer that the view extension does not come 
+                // with a consistent UniqueId. This may result in unexpected Dynamo behavior.
+                if (extension.UniqueId != extension.UniqueId)
+                {
+                    Log("Inconsistent UniqueId for " + extension.Name + " view extension. This may result in unexpected Dynamo behavior.");
+                }
 
                 if (ExtensionAdded != null)
                 {
@@ -144,6 +150,17 @@ namespace Dynamo.Wpf.Extensions
 
         public void Dispose()
         {
+            foreach (var ext in ViewExtensions)
+            {
+                try
+                {
+                    ext.Dispose();
+                }
+                catch (Exception exc)
+                {
+                    Log($"{ext.Name} :  {exc.Message} during dispose");
+                }
+            }
             viewExtensions.Clear();
             viewExtensionLoader.MessageLogged -= Log;
         }
